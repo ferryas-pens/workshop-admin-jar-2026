@@ -3,7 +3,7 @@
 **Mata Kuliah:** Workshop Administrasi Sistem & Jaringan  
 **Durasi:** 120 menit  
 **Target:** 4 Kelas (A/B/C/D) × 10 Kelompok = 40 Kelompok Total  
-**Hardware:** 1× RB1100, 1× CSS326 (.4), 10× RB3011, 10× Proxmox PC i7, 1× DNS PC  
+**Hardware:** 1× RB1100, 1× CSS326 (.4), 10× RB3011, 10× Proxmox PC i7, 1× DNS PC
 **Asisten:** Core infra (RB1100/CSS326/DNS); Kelompok: RB3011+Proxmox+VM
 
 ## Tujuan Pembelajaran
