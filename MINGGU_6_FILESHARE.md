@@ -375,16 +375,17 @@ chmod +x benchmark.sh
 
 ## Referensi
 
- RFC 959 - File Transfer Protocol (FTP) [perplexity](https://www.perplexity.ai/search/cc3d7f8b-512a-480c-9bbc-ee2715ed0f41)
- RFC 2228 - FTP Security Extensions (FTPS) [perplexity](https://www.perplexity.ai/search/5a4ff95d-b3cf-4621-969b-f5f9e69795b4)
- RFC 4120 - Network File System (NFS) Version 4 [perplexity](https://www.perplexity.ai/search/a018901e-c662-433e-9b2f-690d72cfae2e)
- Samba Documentation - smb.conf man page [perplexity](https://www.perplexity.ai/search/7ac84e7d-d571-47e1-b7f7-9ebf6968063e)
- vsftpd.conf man page Ubuntu 24.04 [perplexity](https://www.perplexity.ai/search/71badcf7-08e2-493d-9df8-baa61722a497)
- DigitalOcean - How to Set Up vsftpd for User's Directory [perplexity](https://www.perplexity.ai/search/449b091d-8bff-4f8c-b212-261a28bbccba)
- Ubuntu Server Guide - NFS Configuration [documentation.ubuntu](https://documentation.ubuntu.com/server/how-to/networking/install-nfs/)
- LinuxTechi - NFS Server Ubuntu 24.04 [linuxtechi](https://www.linuxtechi.com/install-nfs-server-on-ubuntu/)
- Red Hat Enterprise Linux - File Sharing Services [perplexity](https://www.perplexity.ai/search/8132f3ea-62d2-42f4-b958-99b2031c4dcc)
- Proxmox VE Networking Guide
- MikroTik Wiki - VLAN & IP Aliases
+ 1. RFC 959 - File Transfer Protocol (FTP) 
+ 2. RFC 2228 - FTP Security Extensions (FTPS) 
+ 3. RFC 4120 - Network File System (NFS) Version 4 
+ 4. Samba Documentation - smb.conf man page [perplexity](https://www.perplexity.ai/search/7ac84e7d-d571-47e1-b7f7-9ebf6968063e)
+ 5. vsftpd.conf man page Ubuntu 24.04 [perplexity](https://www.perplexity.ai/search/71badcf7-08e2-493d-9df8-baa61722a497)
+ 6. DigitalOcean - How to Set Up vsftpd for User's Directory [perplexity](https://www.perplexity.ai/search/449b091d-8bff-4f8c-b212-261a28bbccba)
+ 7. Ubuntu Server Guide - NFS Configuration [documentation.ubuntu](https://documentation.ubuntu.com/server/how-to/networking/install-nfs/)
+ 8.LinuxTechi - NFS Server Ubuntu 24.04 [linuxtechi](https://www.linuxtechi.com/install-nfs-server-on-ubuntu/)
+ 9. Red Hat Enterprise Linux - File Sharing Services [perplexity](https://www.perplexity.ai/search/8132f3ea-62d2-42f4-b958-99b2031c4dcc)
+ 10. Proxmox VE Networking Guide
+ 11. MikroTik Wiki - VLAN & IP Aliases
 
 ***
+
