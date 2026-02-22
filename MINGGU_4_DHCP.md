@@ -83,28 +83,39 @@ ISC DHCP dapat auto-update BIND9 zone saat assign/release lease via **rndc-key**
 
 ## 3. TOPOLOGI LAB
 
-```
-Internet
-   ↓
-RB1100 Gateway HQ (10.252.108.1)
-   ↓
-CSS326-24G-2S+RM Switch (10.252.108.4)
-   ├─ DNS HO Server (10.252.108.10) - BIND9 corp.pens.lab
-   │  └─ Receive DDNS updates dari DHCP
-   │
-   ├─ DHCP/NTP HO Server (10.252.108.20) - ISC DHCP + Chrony
-   │  ├─ Pool: 10.252.108.100-200/24
-   │  ├─ Reservations: srv-ho-a01...d10 (40 VM)
-   │  └─ NTP Stratum 2 (upstream: pool.ntp.org)
-   │
-   ├─ MikroTik RB3011 K01 (WAN: 10.252.108.51, LAN: 192.168.1.1/24)
-   │  └─ DHCP Relay → 10.252.108.20
-   │     └─ Client VM srv-ho-a01 (192.168.1.10) DHCP client
-   │
-   ├─ MikroTik RB3011 K02 (WAN: 10.252.108.52, LAN: 192.168.2.1/24)
-   │  └─ DHCP Relay → 10.252.108.20
-   │
-   └─ ... K03-K10 (total 10 kelompok per kelas × 4 kelas = 40 kelompok)
+```mermaid
+flowchart TB
+  I[Internet] --> G[RB1100 Gateway HQ<br>10.252.108.1]
+  G --> S[CSS326-24G-2S+RM Switch<br>10.252.108.4]
+
+  %% Core services
+  S --> DNS[DNS HO Server<br>10.252.108.10 <br>BIND9: corp.pens.lab]
+  DNS --> DDNS[Receive DDNS updates<br>from DHCP]
+
+  S --> DHCP[DHCP/NTP HO Server<br>10.252.108.20<br>ISC DHCP + Chrony]
+  DHCP --> POOL[DHCP Pool<br>10.252.108.100-200/24]
+  DHCP --> RES["Reservations<br>srv-ho-a01 <br>... srv-ho-d10<br>(40 VM)"]
+  DHCP --> NTP[NTP Stratum 2<br>Upstream: pool.ntp.org]
+
+  %% Routers per group (example K01, K02; pattern K03-K10)
+  S --> K01[MikroTik RB3011 K01<br>WAN: 10.252.108.51<br>LAN: 192.168.1.1/24]
+  K01 --> R01[DHCP Relay ➜ 10.252.108.20]
+  R01 --> VM01[Client VM srv-ho-a01 <br> DHCP client<br>IP: 192.168.1.10]
+
+  S --> K02[MikroTik RB3011 K02<br> WAN: 10.252.108.52<br>LAN: 192.168.2.1/24]
+  K02 --> R02[DHCP Relay ➜ 10.252.108.20]
+
+  S --> KXX["... K03 - K10 <br>(total 10 kelompok per kelas <br> × 4 kelas = 40 kelompok)"]
+  KXX --> RXX[DHCP Relay ➜ 10.252.108.20]
+
+  %% Styling (optional)
+  classDef core fill:#eea,stroke:#446,stroke-width:1px,padding:70px,font-size:16px;
+  classDef svc fill:#efa,stroke:#464,stroke-width:1px,padding:40px,font-size:16px;
+  classDef edge fill:#fea,stroke:#644,stroke-width:1px,padding:40px,font-size:16px;
+
+  class I,G,S core;
+  class DNS,DHCP,DDNS,POOL,RES,NTP svc;
+  class K01,K02,KXX,R01,R02,RXX,VM01 edge;
 ```
 
 **Skema IP:**
