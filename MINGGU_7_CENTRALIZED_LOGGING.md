@@ -1,289 +1,194 @@
-# MINGGU 7 - Centralized Logging dengan Rsyslog & Logrotate
+# MINGGU 7: Centralized Logging dengan Rsyslog
 
-## Tujuan Pembelajaran
+**Tujuan Pembelajaran**: Mahasiswa mampu mengimplementasikan sistem logging terpusat menggunakan rsyslog dengan konfigurasi TCP, template dinamis, forwarder, dan rotasi log otomatis untuk simulasi enterprise network. [perplexity]
+## Kompetensi Dasar
+Pada akhir praktikum, mahasiswa diharapkan:  
+- Mengonfigurasi rsyslog sebagai server dan client dengan protokol TCP untuk reliabilitas tinggi.  
+- Menerapkan template logging berbasis hostname/program untuk organisasi direktori terstruktur.  
+- Mengintegrasikan forwarder ke central HO server untuk agregasi log skala besar.  
+- Mengelola rotasi dan kompresi log menggunakan logrotate guna optimalisasi storage. [tecmint](https://www.tecmint.com/install-rsyslog-centralized-logging-in-centos-ubuntu/)
 
-Setelah menyelesaikan praktikum Minggu 7, mahasiswa diharapkan mampu:
+## Topologi Jaringan Lab
+Lab menggunakan skema hierarchical 2-tier:  
+- **Backbone WAN**: 10.252.108.0/24 (CSS326-24G-2S+RM @10.252.108.4, DNS @10.252.108.10).  
+- **VLAN Kelas**: 51-60 (A), 61-70 (B), 71-80 (C), 81-90 (D).  
+- **Level 1**: Local rsyslog server per kelas (misal K01: 192.168.1.11).  
+- **Level 2**: HO Central Server 10.252.108.50.
 
-1. Menjelaskan konsep **centralized logging** pada lingkungan enterprise.  
-2. Mengkonfigurasi **rsyslog** sebagai log server dan log client pada Ubuntu Server 24.04. [howtoforge](https://www.howtoforge.com/how-to-setup-rsyslog-server-on-ubuntu-24-04/)
-3. Mengirim log sistem (auth, syslog, kernel) dari VM client ke log server terpusat. [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog)
-4. Menganalisis log hasil pengiriman untuk kebutuhan monitoring dan audit keamanan. [prowse](https://prowse.tech/setting-up-an-rsyslog-server-in-linux/)
-5. Menggunakan **logrotate** untuk rotasi, kompresi, dan retensi log secara otomatis. [signoz](https://signoz.io/guides/logrotate-linux/)
-6. Menyusun kebijakan dasar retensi log (berapa lama disimpan, ukuran maksimal, kompresi). [dash0](https://www.dash0.com/guides/log-rotation-linux-logrotate)
-7. Menyusun laporan praktikum dengan cuplikan konfigurasi dan contoh potongan log insiden.
+```mermaid 
+flowchart TB
+  subgraph KA["Kelas A (VLAN 51-60)"]
+    direction TB
 
-***
+    K01["Server K01<br/>192.168.1.11<br/>(VLAN 51)"]
 
-## Deskripsi Praktikum
+    K02["Client K02<br/>192.168.2.11<br/>(VLAN 52)"] -->|"TCP/514"| K01
+    K03["Client K03<br/>192.168.3.11<br/>(VLAN 53)"] -->|"TCP/514"| K01
+    K04["Client K04<br/>192.168.4.11<br/>(VLAN 54)"] -->|"TCP/514"| K01
+    K05["Client K05<br/>192.168.5.11<br/>(VLAN 55)"] -->|"TCP/514"| K01
+    K06["Client K06<br/>192.168.6.11<br/>(VLAN 56)"] -->|"TCP/514"| K01
+    K07["Client K07<br/>192.168.7.11<br/>(VLAN 57)"] -->|"TCP/514"| K01
+    K08["Client K08<br/>192.168.8.11<br/>(VLAN 58)"] -->|"TCP/514"| K01
+    K09["Client K09<br/>192.168.9.11<br/>(VLAN 59)"] -->|"TCP/514"| K01
+    K10["Client K10<br/>192.168.10.11<br/>(VLAN 60)"] -->|"TCP/514"| K01
+  end
 
-Pada Minggu 7, setiap kelas akan membangun skenario **centralized logging** sederhana:
+  K01 -->|"TCP/514 Forward"| HO["HO Central<br/>10.252.108.50"]
 
-- Satu VM per kelas bertindak sebagai **Rsyslog Server** (log collector). [howtoforge](https://www.howtoforge.com/how-to-setup-rsyslog-server-on-ubuntu-24-04/)
-- Minimal satu VM lain per kelompok sebagai **Rsyslog Client** (log sender). [youtube](https://www.youtube.com/watch?v=1gRA1bm1tSs)
-- Log yang dikirim mencakup: `auth.log`, `syslog`, dan log firewall (jika ada). [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog&f=1)
-- Log server menyimpan log per-host dan per-program dalam struktur direktori terpisah. [youtube](https://www.youtube.com/watch?v=yzpDxi8cxSo)
-- Logrotate diaktifkan untuk mencegah penggunaan disk berlebih, dengan rotasi mingguan dan kompresi. [redhat](https://www.redhat.com/en/blog/setting-logrotate)
-
-Fokus utama adalah pemahaman alur log: dari sistem sumber (client) → rsyslog client → jaringan → rsyslog server → file log yang terstruktur.
-
-***
-
-## Topologi Log Server
-
-```mermaid
-graph TB
-    subgraph HO [Head Office Network 10.252.108.0/24]
-        LS[Log Server<br/>VM Log-HO<br/>10.252.108.50<br/>rsyslog + logrotate]
-        C1[VM Kelompok 01<br/>192.168.1.11]
-        C2[VM Kelompok 02<br/>192.168.2.11]
-        C3[VM Kelompok 11<br/>192.168.11.11]
-    end
-
-    C1 -->|TCP/UDP 514| LS
-    C2 -->|TCP/UDP 514| LS
-    C3 -->|TCP/UDP 514| LS
-
-    style LS fill:#ffe0b2
-    style C1 fill:#e3f2fd
-    style C2 fill:#e3f2fd
-    style C3 fill:#e3f2fd
+  classDef server fill:#90EAA,stroke:#2f6f2f,stroke-width:1px;
+  class K01,HO server;
 ```
 
-***
 
-## Langkah 1: Persiapan Rsyslog Server (30 menit)
+## Urutan Port CSS326 Standar
+- **P1-P2**: Reserved (Internet GW, spare/management).  
+- **P3**: K01 (.151)  
+- **P4**: K02 (.152)  
+- **P5**: K03 (.153)  
+- ...  
+- **P12**: K10 (.160)  
+- **P13-P24**: Trunk/overflow untuk Kelas B/C/D via VLAN atau daisy-chain RB3011 (Proxmox .161-.190 shared). [perplexity](https://www.perplexity.ai/search/a9e6e6ed-8292-4a19-9d1c-83aa27dee115)
 
-Pilih satu VM khusus di Head Office (misal IP `10.252.108.50`) sebagai **log server**.
+## Tabel 40 Kelompok (Port CSS326 Konsisten P3-P12)
+| Kelas | K | VLAN | VM IP          | Prox PC | **CSS Port** | Tugas              | Target            | Test Msg       |
+|-------|---|------|----------------|---------|--------------|--------------------|-------------------|----------------|
+| A |01| 51  |192.168.1.11   |.151    |**P3**       |SERVER A +HO fwd   |10.252.108.50     |TEST-M7-KA01  |
+| A     |02| 52  |192.168.2.11   |.152    |**P4**       |Client→K01        |192.168.1.11      |TEST-M7-KA02  |
+| A     |03| 53  |192.168.3.11   |.153    |**P5**       |Client→K01        |192.168.1.11      |TEST-M7-KA03  |
+| A     |04| 54  |192.168.4.11   |.154    |**P6**       |Client→K01        |192.168.1.11      |TEST-M7-KA04  |
+| A     |05| 55  |192.168.5.11   |.155    |**P7**       |Client→K01        |192.168.1.11      |TEST-M7-KA05  |
+| A     |06| 56  |192.168.6.11   |.156    |**P8**       |Client→K01        |192.168.1.11      |TEST-M7-KA06  |
+| A     |07| 57  |192.168.7.11   |.157    |**P9**       |Client→K01        |192.168.1.11      |TEST-M7-KA07  |
+| A     |08| 58  |192.168.8.11   |.158    |**P10**      |Client→K01        |192.168.1.11      |TEST-M7-KA08  |
+| A     |09| 59  |192.168.9.11   |.159    |**P11**      |Client→K01        |192.168.1.11      |TEST-M7-KA09  |
+| A     |10| 60  |192.168.10.11  |.160    |**P12**      |Client→K01        |192.168.1.11      |TEST-M7-KA10  |
+| B     |11| 61  |192.168.11.11  |.161    |**P3**       |SERVER B +HO fwd   |10.252.108.50     |TEST-M7-KB11  |
+| B     |12| 62  |192.168.12.11  |.162    |**P4**       |Client→K11        |192.168.11.11     |TEST-M7-KB12  |
+| *(Pattern identik untuk B11-P3 Server, C21-P3 Server, D31-P3 Server)*| | | | | | | | 
 
-### 1.1 Verifikasi dan Aktivasi Rsyslog
 
-```bash
-# Pastikan rsyslog terpasang dan aktif
-sudo apt update
-sudo apt install rsyslog -y
+## Petunjuk Teknis Umum
+- Semua VM: Ubuntu Server 24.04 LTS, akses via SSH dari Proxmox console.  
+- Firewall: `sudo ufw --force enable && sudo ufw allow ssh && sudo ufw allow 514/tcp`.  
+- Test log: `logger "TEST-M7-[KODE-KELAS-KELOMPOK] dari $(hostname -s)"`. 
 
-sudo systemctl status rsyslog
-sudo systemctl enable rsyslog
+## Langkah-langkah Praktikum
+
+### A. Persiapan VM (Semua Kelompok - 10 menit)
+```
+1. Login Proxmox → Console VM sesuai tabel
+2. sudo apt update && apt install rsyslog ufw -y
+3. sudo ufw allow 22 && sudo ufw allow 514/tcp
+4. sudo systemctl enable --now rsyslog ufw
 ```
 
-### 1.2 Konfigurasi Rsyslog sebagai Log Server
-
-Buka konfigurasi utama:
-
-```bash
-sudo nano /etc/rsyslog.conf
+### B. Konfigurasi SERVER Rsyslog (K01/K11/K21/K31 P3 - 25 menit)
 ```
-
-Aktifkan input UDP dan TCP (hapus tanda komentar pada baris terkait):
-
-```conf
-module(load="imudp")
-input(type="imudp" port="514")
-
+nano /etc/rsyslog.conf  # Uncomment/add:
 module(load="imtcp")
 input(type="imtcp" port="514")
 
-# Batasi sumber yang diizinkan
-$AllowedSender TCP, 127.0.0.1, 10.252.108.0/24, 192.168.0.0/16
-$AllowedSender UDP, 127.0.0.1, 10.252.108.0/24, 192.168.0.0/16
-```
+# VLAN Template (M2-enhanced)
+$template VLANRemote,"/var/log/remote/vlan%vlanid%/%HOSTNAME%/%PROGRAMNAME%.log"
+$DirCreate_datalvl 3
+$FileOwner syslog $FileGroup adm
 
-Tambahkan template penyimpanan log per host:
+*.* ?VLANRemote
+& stop
 
-```conf
-# Template direktori log per host dan per program
-$template remote-incoming-logs,"/var/log/remote/%HOSTNAME%/%PROGRAMNAME%.log"
+# HO Forward
+*.info @@10.252.108.50:514
 
-*.* ?remote-incoming-logs
-```
-
-Simpan file, kemudian restart layanan:
-
-```bash
-sudo rsyslogd -f /etc/rsyslog.conf -N1   # uji sintaks
+# Apply
+sudo mkdir -p /var/log/remote/vlan51/k01
 sudo systemctl restart rsyslog
-sudo netstat -tulnp | grep 514           # pastikan port 514 TCP/UDP terbuka
+sudo rsyslogd -N1
 ```
 
-***
-
-## Langkah 2: Konfigurasi Rsyslog Client (30 menit)
-
-Pada VM tiap kelompok (misal `192.168.X.11`), konfigurasikan sebagai **client** yang mengirim log ke server.
-
-### 2.1 Pastikan Rsyslog Aktif
-
-```bash
-sudo apt install rsyslog -y
-sudo systemctl enable --now rsyslog
+### C. Konfigurasi CLIENT Rsyslog (K02-K10 P4-P12 - 20 menit)
 ```
+nano /etc/rsyslog.d/10-client.conf:
+*.* @@192.168.1.11:514  # IP server kelas
 
-### 2.2 Konfigurasi Forwarding Log ke Server
-
-Buat file konfigurasi khusus:
-
-```bash
-sudo nano /etc/rsyslog.d/90-remote.conf
-```
-
-Isi dengan konfigurasi berikut:
-
-```conf
-# Kirim semua log ke log server via TCP
-*.*  action(
-       type="omfwd"
-       target="10.252.108.50"
-       port="514"
-       protocol="tcp"
-       queue.filename="fwdRule-remote"
-       queue.maxdiskspace="100m"
-       queue.saveonshutdown="on"
-       queue.type="LinkedList"
-       action.resumeRetryCount="-1"
-     )
-```
-
-Simpan dan restart:
-
-```bash
 sudo systemctl restart rsyslog
 ```
 
-### 2.3 Uji Pengiriman Log
+### D. Testing End-to-End (20 menit)
+```
+# Client test (jalankan 3x client berbeda)
+logger "TEST-M7-KA02 dari $(hostname -s) VLAN52"
 
-Pada client:
+# Server verify
+sudo find /var/log/remote -type f -exec grep "TEST-M7-KA" {} \;
+sudo tail -f /var/log/remote/vlan52/k02/syslog
 
-```bash
-logger "TEST-M7: Pesan uji dari kelompok $(hostname)"
+# HO verify (bonus)
+ssh ho-admin "grep TEST-M7 /var/log/syslog"
 ```
 
-Pada server:
-
-```bash
-sudo find /var/log/remote -type f
-sudo grep "TEST-M7" -R /var/log/remote/
+### E. Logrotate Implementation (15 menit)
 ```
-
-Jika pesan uji muncul di log server, konfigurasi client–server sudah benar. [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog&f=1)
-
-***
-
-## Langkah 3: Struktur dan Analisis Log (20 menit)
-
-Mahasiswa diminta mengamati struktur direktori yang terbentuk di log server:
-
-```bash
-sudo tree /var/log/remote | head
-sudo ls -R /var/log/remote
-```
-
-Contoh struktur yang diharapkan:
-
-```text
-/var/log/remote/
- ├── vm-k01
- │   ├── sshd.log
- │   ├── cron.log
- │   └── systemd.log
- └── vm-k02
-     ├── sshd.log
-     └── auth.log
-```
-
-Tugas analisis:
-
-- Cari baris log ketika terjadi login SSH ke salah satu VM.  
-- Identifikasi field waktu, hostname, service, dan pesan; tulis contoh di laporan.  
-
-***
-
-## Langkah 4: Konfigurasi Logrotate untuk Log Remote (25 menit)
-
-Agar log tidak memenuhi disk, gunakan **logrotate** untuk rotasi otomatis. [signoz](https://signoz.io/guides/logrotate-linux/)
-
-### 4.1 Verifikasi Logrotate
-
-```bash
-sudo apt install logrotate -y
-logrotate --version
-```
-
-### 4.2 Tambah Rule Khusus untuk Remote Logs
-
-Buat file konfigurasi:
-
-```bash
-sudo nano /etc/logrotate.d/remote-logs
-```
-
-Isi:
-
-```conf
-/var/log/remote/*/*.log {
-    weekly
-    rotate 4
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 0640 syslog adm
-    sharedscripts
-    postrotate
-        systemctl reload rsyslog >/dev/null 2>&1 || true
-    endscript
+nano /etc/logrotate.d/rsyslog-vlan:
+/var/log/remote/vlan*/*/*.log {
+    daily rotate 56 compress
+    postrotate /usr/lib/rsyslog/rsyslog-rotate; systemctl reload rsyslog; endscript
 }
+
+sudo logrotate -f /etc/logrotate.d/rsyslog-vlan
+ls -la /var/log/remote/*/*.gz
 ```
 
-Penjelasan singkat (untuk laporan):
+### F. Dokumentasi (10 menit)
+Screenshot 8 item → PDF laporan.
 
-- `weekly`: rotasi setiap minggu. [redhat](https://www.redhat.com/en/blog/setting-logrotate)
-- `rotate 4`: menyimpan 4 arsip (maks. 1 bulan jika mingguan). [signoz](https://signoz.io/guides/logrotate-linux/)
-- `compress`: arsip lama dikompresi (hemat ruang). [dash0](https://www.dash0.com/guides/log-rotation-linux-logrotate)
+## Pertanyaan Setelah Praktikum
+1. Verifikasi struktur `/var/log/remote/vlan51/k01/` - mengapa `%vlanid%` penting?  
+2. Output `rsyslogd -N1` dan `tcpdump port 514` - apa temuan?  
+3. Logrotate hasil - ukuran penghematan disk?  
+4. Jika HO 10.252.108.50 down, impact apa ke local logging?  
+5. Rancang policy routing (M2) khusus traffic syslog VLAN51 → WAN prioritas? [perplexity](https://www.perplexity.ai/search/fe0a17bc-91ae-4cfe-b449-4e65008aec4a)
 
-### 4.3 Uji Konfigurasi Logrotate
+## Checklist Verifikasi
+```
+PRE [ ] VLAN active: ip link show vlan51
+PRE [ ] Firewall: ufw status 514/tcp ALLOW
 
-```bash
-sudo logrotate -d /etc/logrotate.conf      # mode debug
-sudo logrotate -f /etc/logrotate.conf      # paksa rotasi (untuk percobaan)
-ls -l /var/log/remote/*/
+SERVER [ ] rsyslogd -N1 = OK
+SERVER [ ] netstat -tulpn | grep 514 = LISTEN TCP
+SERVER [ ] mkdir /var/log/remote/vlan51/ = SUCCESS
+
+CLIENT [ ] 9x logger TEST-M7 → server logs visible
+CLIENT [ ] tail -f /var/log/remote/vlanXX/kXX/syslog = REAL-TIME
+
+FORWARD [ ] HO grep TEST-M7 = 9+ entries per kelas
+ROTATE [ ] ls *.gz = FILES EXIST
+ROTATE [ ] logrotate -d = NO ERRORS
+
+SUBMIT [ ] 8 screenshots PDF <20MB
 ```
 
-Mahasiswa diminta menyertakan screenshot sebelum–sesudah rotasi dalam laporan.
+## Kriteria Keberhasilan & Dokumentasi Laporan
+**Checklist Wajib (Submit via GitHub Classroom)**:  
+- [ ] Rsyslog server kelas listen TCP/514 (`netstat`).  
+- [ ] Struktur `/var/log/remote/[hostname]/[program].log` terbentuk dari 9 client.  
+- [ ] Forward berhasil ke HO (cek di 10.252.108.50).  
+- [ ] Logrotate hasil kompresi (.gz files).  
+- [ ] `rsyslogd -N1` output OK.  
 
-***
+**Screenshot Wajib (6 buah)**:  
+1. Konfigurasi template `/etc/rsyslog.conf`.  
+2. Output `rsyslogd -N1`.  
+3. `netstat -tulpn | grep 514`.  
+4. Struktur `/var/log/remote/` dengan test logs dari 3+ client.  
+5. Hasil `find /var/log/remote -name "*.gz"`.  
+6. Log forward di HO server. 
 
-## Checklist Penilaian
+## Diskusi & Evaluasi
+1. Mengapa menggunakan TCP daripada UDP untuk pengiriman log kritis? Jelaskan risiko packet loss pada UDP. [crowdstrike](https://www.crowdstrike.com/en-us/guides/syslog-logging/working-with-syslog-ng/)
+2. Bagaimana template rsyslog (`%HOSTNAME%/%PROGRAMNAME%`) mendukung skalabilitas di environment multi-host?  
+3. Rancang kebijakan rotasi log untuk sistem dengan 1TB logs/hari, pertimbangkan audit compliance dan disk usage.  
+4. Jelaskan integrasi rsyslog dengan ELK Stack (Elasticsearch, Logstash, Kibana) secara konseptual.  
+5. Analisis fault tolerance: Apa dampak jika HO server down pada arsitektur 2-tier ini? [centron](https://www.centron.de/en/tutorial/manage-linux-system-logs-with-rsyslog-full-guide/)
 
-- [ ] Rsyslog server (`10.252.108.50`) menerima log di `/var/log/remote/...`. [howtoforge](https://www.howtoforge.com/how-to-setup-rsyslog-server-on-ubuntu-24-04/)
-- [ ] Minimal 1 client per kelompok mengirim log ke server. [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog&f=1)
-- [ ] Pesan `logger "TEST-M7..."` muncul di log server.  
-- [ ] Struktur direktori per-host dan per-program terbentuk dengan benar.  
-- [ ] Logrotate terpasang dan rule `remote-logs` aktif. [signoz](https://signoz.io/guides/logrotate-linux/)
-- [ ] Hasil rotasi log (file `.gz`) terbentuk setelah uji `logrotate -f`.  
-- [ ] Laporan memuat contoh potongan log dan interpretasi isinya.  
+**Nilai Praktikum**: 100 poin (Checklist 70%, Screenshot 20%, Diskusi 10%).  
 
-***
-
-## Troubleshooting Umum
-
-| Masalah | Diagnosis | Solusi |
-|--------|-----------|--------|
-| Log tidak sampai ke server | Port 514 tertutup atau rsyslog di server mati | Cek `sudo systemctl status rsyslog`, `sudo netstat -tulnp | grep 514` di server.  [howtoforge](https://www.howtoforge.com/how-to-setup-rsyslog-server-on-ubuntu-24-04/) |
-| File di `/var/log/remote` tidak muncul | Template salah atau rule tidak dieksekusi | Cek isi `/etc/rsyslog.conf`, pastikan `*.* ?remote-incoming-logs` aktif.  [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog&f=1) |
-| Client error saat restart rsyslog | Sintaks file `/etc/rsyslog.d/90-remote.conf` salah | Jalankan `rsyslogd -N1` di client untuk uji sintaks.  [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog) |
-| Logrotate tidak memutar file | Pola path tidak cocok | Pastikan path `/var/log/remote/*/*.log` benar dan file tidak kosong.  [signoz](https://signoz.io/guides/logrotate-linux/) |
-| Disk hampir penuh | Banyak log lama tanpa kompresi | Pastikan `compress` aktif dan `rotate` tidak terlalu besar, atau hapus arsip lama secara manual.  [redhat](https://www.redhat.com/en/blog/setting-logrotate) |
-
-***
-
-## Pertanyaan Evaluasi
-
-1. Jelaskan keuntungan **centralized logging** dibandingkan log lokal per server dalam konteks keamanan dan audit. [prowse](https://prowse.tech/setting-up-an-rsyslog-server-in-linux/)
-2. Mengapa disarankan menggunakan **TCP** untuk pengiriman log kritis dibanding UDP? Jelaskan risiko kehilangan log. [howtoforge](https://www.howtoforge.com/how-to-setup-rsyslog-server-on-ubuntu-24-04/)
-3. Jelaskan fungsi **template** pada rsyslog dan berikan contoh struktur direktori log yang baik untuk enterprise. [server-world](https://www.server-world.info/en/note?os=Ubuntu_24.04&p=rsyslog&f=1)
-4. Rancang kebijakan rotasi log untuk sistem dengan beban tinggi agar menjaga keseimbangan antara kebutuhan audit dan kapasitas disk. [redhat](https://www.redhat.com/en/blog/setting-logrotate)
-5. Bagaimana mengintegrasikan rsyslog dengan sistem visualisasi log (misalnya ELK / Grafana Loki) secara garis besar? [youtube](https://www.youtube.com/watch?v=i7zaHPnfJCA)
-
-***
-
-**End of MINGGU_7_CENTRALIZED_LOGGING.md**
