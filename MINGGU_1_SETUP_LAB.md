@@ -199,5 +199,3 @@ nslookup google.com 10.252.108.10  # DNS Forward
 
 ***
 
-**End of MINGGU_1_PRAKTIKUM_LENGKAP.md**  
-*Copy-paste ke file .md → Ready distribusi 4 kelas!*
