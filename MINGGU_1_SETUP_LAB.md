@@ -24,54 +24,87 @@
 
 ### 1.1 Diagram Topologi Backbone
 
-```
-                    ┌─────────────────────────────────────────────────────────────┐
-                    │                      INTERNET                                │
-                    └─────────────────────────┬───────────────────────────────────┘
-                                              │
-                                              │ WAN: 192.168.89.2/24
-                                    ┌─────────┴─────────┐
-                                    │   RB1100 (HO)     │
-                                    │   ROUTER UTAMA    │
-                                    │   Gateway: .1     │
-                                    └─────────┬─────────┘
-                                              │ LAN: 10.252.108.1/24
-                                              │
-        ┌─────────────────────────────────────┼─────────────────────────────────────┐
-        │                                     │                                     │
-        │                    BACKBONE NETWORK: 10.252.108.0/24                      │
-        │                                     │                                     │
-        │    ┌────────────────────────────────┼────────────────────────────────┐    │
-        │    │                                │                                │    │
-   .10  │    │  .20          .21-.30          │  .4                            │    │
-┌───────┴┐ ┌─┴────────┐ ┌────────────────┐   │                                │    │
-│  DNS   │ │ RSYSLOG  │ │   PROXMOX VE   │   │                                │    │
-│  HO    │ │   HO     │ │  Cloud Service │   │                                │    │
-└────────┘ └──────────┘ │  Kelompok 1-10 │   │                                │    │
-                        └────────────────┘   │                                │    │
-                                    ┌────────┴──────────┐                     │    │
-                                    │   SWITCH CSS326   │                     │    │
-                                    │   (SwOS Web UI)   │                     │    │
-                                    │  Port 1: Uplink   │                     │    │
-                                    │  Port 2: Reserved │                     │    │
-                                    │  Port 3-12: Router│                     │    │
-                                    │  Kelompok 1-10    │                     │    │
-                                    └──────────┬────────┘                     │    │
-                                             │                                │    │
-        ┌──────┬──────┬──────┬──────┬───────┼───────┬──────┬──────┬──────┬───┘    │
-        │      │      │      │      │       │       │      │      │      │        │
-      Port3  Port4  Port5  Port6  Port7   Port8   Port9  Port10 Port11 Port12    │
-        │      │      │      │      │       │       │      │      │      │        │
-   ┌────┴─┐┌───┴──┐┌──┴──┐┌──┴──┐┌──┴──┐┌───┴──┐┌───┴──┐┌──┴──┐┌──┴──┐┌──┴──┐    │
-   │RB3011││RB3011││RB3011││RB3011││RB3011││RB3011││RB3011││RB3011││RB3011││RB3011│   │
-   │Klp 1 ││Klp 2 ││Klp 3 ││Klp 4 ││Klp 5 ││Klp 6 ││Klp 7 ││Klp 8 ││Klp 9 ││Klp10│   │
-   │.51   ││.52   ││.53   ││.54   ││.55   ││.56   ││.57   ││.58   ││.59   ││.60  │   │
-   └──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬───┘└──┬──┘   │
-      │       │       │       │       │       │       │       │       │       │      │
-   LAN 1   LAN 2   LAN 3   LAN 4   LAN 5   LAN 6   LAN 7   LAN 8   LAN 9   LAN 10   │
-  192.168  192.168 192.168 192.168 192.168 192.168 192.168 192.168 192.168 192.168  │
-   .1.0/24  .2.0/24 .3.0/24 .4.0/24 .5.0/24 .6.0/24 .7.0/24 .8.0/24 .9.0/24 .10.0/24│
-        └──────────────────────────────────────────────────────────────────────────┘
+```mermaid
+          flowchart LR
+  internet([INTERNET])
+  rb1100["RB1100 (HO) <br>ROUTER UTAMA<br>WAN: 192.168.89.2/24<br>Gateway: 192.168.89.1<br>LAN: 10.252.108.1/24"]
+
+  internet -->|WAN| rb1100
+
+  subgraph BB["BACKBONE NETWORK (10.252.108.0/24)"]
+    direction TB
+
+    backbone["(Backbone Segment<br>10.252.108.0/24)"]
+
+    subgraph SVC["Services / Core Hosts"]
+      direction LR
+      dns["DNS HO<br>10.252.108.10"]
+      rsyslog["RSYSLOG HO<br>10.252.108.20"]
+      proxmox["PROXMOX VE<br>Cloud Service Kelompok 1-10<br>10.252.108.21-30"]
+    end
+
+    subgraph SW["Switching"]
+      direction TB
+      css326["SWITCH CSS326<br>10.252.108.4<br>(SwOS Web UI)<br>Port 1: Uplink<br>Port 2: Reserved<br>Port 3-12: Router Klp 1-10"]
+    end
+
+    subgraph GR["Routers Kelompok (RB3011)"]
+      direction LR
+      rb1[RB3011 Klp 1<br>10.252.108.51]
+      rb2[RB3011 Klp 2<br>10.252.108.52]
+      rb3[RB3011 Klp 3<br>10.252.108.53]
+      rb4[RB3011 Klp 4<br>10.252.108.54]
+      rb5[RB3011 Klp 5<br>10.252.108.55]
+      rb6[RB3011 Klp 6<br>10.252.108.56]
+      rb7[RB3011 Klp 7<br>10.252.108.57]
+      rb8[RB3011 Klp 8<br>10.252.108.58]
+      rb9[RB3011 Klp 9<br>10.252.108.59]
+      rb10[RB3011 Klp 10<br>10.252.108.60]
+    end
+
+    backbone --- dns
+    backbone --- rsyslog
+    backbone --- proxmox
+    backbone --- css326
+
+    css326 -->|Port3| rb1
+    css326 -->|Port4| rb2
+    css326 -->|Port5| rb3
+    css326 -->|Port6| rb4
+    css326 -->|Port7| rb5
+    css326 -->|Port8| rb6
+    css326 -->|Port9| rb7
+    css326 -->|Port10| rb8
+    css326 -->|Port11| rb9
+    css326 -->|Port12| rb10
+  end
+
+  rb1100 -->|LAN| BB
+
+  subgraph LANs["LAN Kelompok"]
+    direction LR
+    lan1[(LAN 1<br>192.168.1.0/24)]
+    lan2[(LAN 2<br>192.168.2.0/24)]
+    lan3[(LAN 3<br>192.168.3.0/24)]
+    lan4[(LAN 4<br>192.168.4.0/24)]
+    lan5[(LAN 5<br>192.168.5.0/24)]
+    lan6[(LAN 6<br>192.168.6.0/24)]
+    lan7[(LAN 7<br>192.168.7.0/24)]
+    lan8[(LAN 8<br>192.168.8.0/24)]
+    lan9[(LAN 9<br>192.168.9.0/24)]
+    lan10[(LAN 10<br>192.168.10.0/24)]
+  end
+
+  rb1 --> lan1
+  rb2 --> lan2
+  rb3 --> lan3
+  rb4 --> lan4
+  rb5 --> lan5
+  rb6 --> lan6
+  rb7 --> lan7
+  rb8 --> lan8
+  rb9 --> lan9
+  rb10 --> lan10
 ```
 
 ### 1.2 Komponen Infrastruktur
