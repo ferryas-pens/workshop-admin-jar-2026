@@ -1,287 +1,185 @@
-# Modul Praktikum: Docker, Service, Web Server, Database, Logging, dan Monitoring Resource
+# Modul Praktikum Docker Intro
 
-## Identitas Modul
-
-**Mata kuliah / workshop:** Administrasi Jaringan, Sistem Terdistribusi, DevOps Dasar, atau Keamanan Infrastruktur  
-**Topik:** Docker untuk deployment service berbasis container  
-**Target peserta:** Mahasiswa yang sudah memahami dasar sistem operasi, TCP/IP, terminal Linux/PowerShell, dan konsep client-server  
-**Durasi total yang disarankan:** 4–6 pertemuan praktikum, masing-masing 2–3 jam  
-**Platform:** Windows 10/11 dengan Docker Desktop + WSL 2, atau Linux Ubuntu/Debian/Fedora/RHEL-compatible  
-**Mode kerja:** Individu atau kelompok kecil 2 orang
+**Disesuaikan dengan repository:** `ferryas-pens/docker-intro`  
+**Konteks:** Workshop administrasi jaringan, containerization, service deployment, database, centralized logging, dan monitoring resource  
+**Platform utama:** Ubuntu 22.04  
+**Platform pendukung:** Windows 10 atau 11 dengan Docker Desktop dan WSL2 backend  
+**Direktori kerja standar:** `~/docker-lab`
 
 ---
 
-## Capaian Pembelajaran Praktikum
+## Struktur Modul
 
-Setelah menyelesaikan modul ini, mahasiswa mampu:
+| Modul | Topik | Fokus Praktikum | Durasi |
+|---|---|---|---:|
+| 1 | Docker dan Instalasi | Arsitektur Docker, instalasi, image, container, Dockerfile | 120 menit |
+| 2 | Docker Service, Volume, dan Mount Point | Network, volume, bind mount, tmpfs, Docker Compose | 120 menit |
+| 3 | Web Service Docker | Apache, Nginx, virtual host, SSL, reverse proxy, backend API | 120 menit |
+| 4 | Database PostgreSQL | PostgreSQL, pgAdmin4, init script, CRUD, backup, restore | 120 menit |
+| 5 | Logging Service dengan PostgreSQL | Fluent Bit, Docker logging driver, PostgreSQL log storage, SQL analysis | 120 menit |
+| 6 | Grafana Monitoring Resource | cAdvisor, Prometheus, Grafana dashboard | 120 menit |
 
-1. Menjelaskan fungsi Docker Engine, image, container, volume, bind mount, network, dan Docker Compose.
-2. Menginstal dan memverifikasi Docker pada Windows dan Linux.
-3. Menjalankan service sederhana di Docker serta mengelola lifecycle container.
-4. Menggunakan mount point untuk persistent storage dan file sharing antara host dan container.
-5. Menjalankan web service Apache HTTP Server dan Nginx di container.
-6. Menjalankan PostgreSQL di Docker dengan persistent volume.
-7. Membangun pipeline logging sederhana dari service container ke PostgreSQL.
-8. Menjalankan Grafana, Prometheus, dan cAdvisor untuk monitoring resource container.
-9. Menganalisis log, status container, penggunaan CPU, memori, I/O, dan network.
-10. Menerapkan praktik dasar keamanan Docker untuk lingkungan praktikum.
+> Modul 1 sampai 5 mengikuti struktur repository `docker-intro`. Modul 6 ditambahkan sebagai ekstensi karena kebutuhan awal mencakup monitoring resource dengan Grafana.
 
 ---
 
-## Peta Praktikum
+## Konvensi Umum Praktikum
 
-| Praktikum | Topik | Output Utama |
-|---|---|---|
-| 1 | Instalasi Docker di Windows dan Linux | Docker aktif dan tervalidasi dengan `hello-world` |
-| 2 | Service Docker dan mount point | Container aktif, volume dan bind mount berfungsi |
-| 3 | Web service Apache dan Nginx | Dua web server berjalan di port berbeda |
-| 4 | PostgreSQL service di Docker | Database persisten dan dapat diakses dengan `psql` |
-| 5 | Logging service Docker dengan PostgreSQL | Log aplikasi masuk ke tabel PostgreSQL |
-| 6 | Grafana Docker untuk monitoring resource | Dashboard Grafana membaca metrik dari Prometheus/cAdvisor |
-
----
-
-## Standar Penamaan Praktikum
-
-Agar hasil praktikum rapi, gunakan satu direktori kerja:
+Gunakan direktori kerja:
 
 ```bash
-mkdir docker-praktikum
-cd docker-praktikum
+mkdir -p ~/docker-lab
+cd ~/docker-lab
 ```
 
-Struktur akhir yang akan dibuat:
+Gunakan Docker Compose v2:
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
+Gunakan perintah reset total hanya jika data boleh dihapus:
+
+```bash
+docker compose down -v
+```
+
+Image yang digunakan dalam modul:
 
 ```text
-docker-praktikum/
-├── 01-web/
-│   ├── apache-html/
-│   │   └── index.html
-│   ├── nginx-html/
-│   │   └── index.html
-│   └── compose.yaml
-├── 02-postgres/
-│   └── compose.yaml
-├── 03-logging-postgres/
-│   ├── app.py
-│   ├── compose.yaml
-│   ├── collector/
-│   │   ├── Dockerfile
-│   │   └── collector.py
-│   └── db/
-│       └── init.sql
-└── 04-monitoring/
-    ├── compose.yaml
-    ├── prometheus/
-    │   └── prometheus.yml
-    └── grafana/
-        └── provisioning/
-            └── datasources/
-                └── datasource.yml
+nginx:alpine
+nginx:1.26-alpine
+httpd:2.4-alpine
+postgres:16-alpine
+python:3.11-slim
+python:3.11-alpine
+fluent/fluent-bit:latest
+dpage/pgadmin4:latest
+prom/prometheus:latest
+grafana/grafana:latest
+gcr.io/cadvisor/cadvisor:latest
 ```
 
 ---
 
-# Praktikum 1 — Docker dan Instalasinya di Windows dan Linux
+# Modul 1 — Docker dan Instalasi
 
-## 1.1 Tujuan
+## Tujuan Pembelajaran
 
-Mahasiswa mampu menginstal Docker, menjalankan container uji, dan memahami komponen dasar Docker.
+Mahasiswa mampu:
 
-## 1.2 Teori Singkat
+1. Menjelaskan perbedaan Virtual Machine dan container.
+2. Menjelaskan Docker Client, Docker Daemon, Docker Registry, image, container, network, volume, `containerd`, dan `runc`.
+3. Menginstal Docker Engine pada Ubuntu 22.04.
+4. Menginstal Docker Desktop pada Windows dengan WSL2 backend.
+5. Menjalankan container `hello-world`, `nginx`, dan `ubuntu`.
+6. Menggunakan perintah dasar Docker.
+7. Membuat custom image sederhana menggunakan Dockerfile.
 
-Docker adalah platform untuk menjalankan aplikasi dalam unit terisolasi bernama **container**. Container menggunakan image sebagai template. Docker membantu aplikasi berjalan konsisten di berbagai lingkungan karena dependensi, runtime, dan konfigurasi dapat dikemas bersama.
+## Dasar Teori
 
-Komponen penting:
+| Aspek | Virtual Machine | Container |
+|---|---|---|
+| Isolasi | Full OS per instance | Shared kernel dan isolated userspace |
+| Ukuran | Besar karena membawa guest OS | Lebih ringan |
+| Startup | Relatif lambat | Cepat |
+| Overhead | Hypervisor dan guest OS | Langsung di atas host kernel |
+| Use case | Multi-OS dan strong isolation | Microservices, CI/CD, scaling |
 
-- **Docker Engine:** runtime untuk membangun dan menjalankan container.
-- **Docker CLI:** perintah `docker` yang digunakan dari terminal.
-- **Docker Desktop:** paket lengkap untuk Windows, macOS, dan Linux desktop.
-- **Image:** template read-only untuk membuat container.
-- **Container:** instance berjalan dari image.
-- **Registry:** repositori image, misalnya Docker Hub.
-- **Docker Compose:** alat untuk menjalankan aplikasi multi-container menggunakan file YAML.
+Arsitektur Docker secara sederhana:
 
-## 1.3 Instalasi di Windows
-
-### Prasyarat Windows
-
-Gunakan salah satu lingkungan berikut:
-
-- Windows 10/11 64-bit.
-- Virtualization aktif di BIOS/UEFI.
-- WSL 2 aktif dan terpasang.
-- Akun user memiliki hak instalasi aplikasi.
-
-### Langkah Instalasi Windows
-
-1. Aktifkan WSL 2 dari PowerShell Administrator:
-
-```powershell
-wsl --install
+```text
+Docker CLI atau Docker Desktop
+        │
+        ▼
+Docker Daemon atau dockerd
+        │
+        ├─ Images
+        ├─ Containers
+        ├─ Networks
+        ├─ Volumes
+        └─ containerd dan runc
+        │
+        ▼
+Host OS Kernel dengan namespaces, cgroups, dan union filesystem
 ```
 
-2. Restart Windows bila diminta.
-3. Instal distribusi Linux, misalnya Ubuntu, dari Microsoft Store bila belum tersedia.
-4. Unduh dan instal Docker Desktop for Windows.
-5. Buka Docker Desktop.
-6. Pastikan opsi **Use the WSL 2 based engine** aktif.
-7. Buka PowerShell atau Windows Terminal, lalu jalankan:
+Docker Desktop pada Windows memakai WSL2 agar container Linux berjalan dengan kernel Linux di lingkungan Windows.
 
-```powershell
-docker --version
-docker compose version
-docker run hello-world
+## Langkah Praktikum
+
+### 1. Persiapan Linux
+
+```bash
+ping -c 3 google.com
+sudo apt update && sudo apt upgrade -y
 ```
 
-### Output yang Diharapkan
-
-Perintah `docker run hello-world` menampilkan pesan bahwa instalasi Docker bekerja dengan benar.
-
-## 1.4 Instalasi di Linux Ubuntu/Debian
-
-> Catatan: Perintah berikut cocok untuk Ubuntu/Debian modern. Untuk distribusi lain, sesuaikan package manager dan repository.
-
-### Langkah Instalasi
-
-1. Hapus paket lama bila ada:
+### 2. Instalasi Docker Engine Ubuntu 22.04
 
 ```bash
 sudo apt remove -y docker docker-engine docker.io containerd runc
-```
-
-2. Instal paket pendukung:
-
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg
-```
-
-3. Tambahkan GPG key Docker:
-
-```bash
+sudo apt install -y ca-certificates curl gnupg lsb-release
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
-```
-
-4. Tambahkan repository Docker:
-
-```bash
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-```
-
-5. Instal Docker Engine dan plugin Compose:
-
-```bash
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-6. Aktifkan service Docker:
-
-```bash
-sudo systemctl enable --now docker
-sudo systemctl status docker --no-pager
-```
-
-7. Jalankan verifikasi:
-
-```bash
-sudo docker run hello-world
-```
-
-8. Agar user biasa dapat menjalankan Docker tanpa `sudo`:
-
-```bash
 sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-9. Uji ulang tanpa `sudo`:
-
-```bash
-docker run hello-world
-```
-
-## 1.5 Instalasi Ringkas di Fedora/RHEL-compatible
-
-Untuk Fedora atau RHEL-compatible, gunakan pendekatan package manager `dnf`:
-
-```bash
-sudo dnf -y install dnf-plugins-core
-sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo systemctl enable --now docker
-sudo docker run hello-world
-```
-
-Tambahkan user ke grup Docker bila diperlukan:
-
-```bash
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-## 1.6 Pemeriksaan Awal
-
-Jalankan:
+Verifikasi:
 
 ```bash
 docker version
 docker info
-docker compose version
-docker image ls
-docker container ls -a
+sudo systemctl status docker --no-pager
+docker run hello-world
 ```
 
-Pertanyaan analisis:
+### 3. Instalasi Docker Desktop Windows
 
-1. Apa perbedaan `docker image ls` dan `docker container ls -a`?
-2. Mengapa Docker Desktop di Windows membutuhkan WSL 2?
-3. Apa risiko keamanan menambahkan user ke grup `docker`?
+Buka PowerShell sebagai Administrator:
 
----
-
-# Praktikum 2 — Service di Docker dan Mount Point
-
-## 2.1 Tujuan
-
-Mahasiswa mampu menjalankan service container, mengelola lifecycle container, serta memahami volume dan bind mount.
-
-## 2.2 Teori Singkat
-
-Service dalam konteks Docker dapat dipahami sebagai proses aplikasi yang berjalan di container, misalnya web server, database, queue, collector, atau monitoring agent.
-
-Lifecycle container umum:
-
-```text
-image pull/build → container create → start → running → stop/restart → remove
+```powershell
+wsl --install
+wsl --set-default-version 2
+wsl --list --verbose
 ```
 
-Jenis mount yang digunakan pada praktikum:
+Lanjutkan dengan instalasi Docker Desktop, aktifkan WSL2 backend, lalu verifikasi:
 
-1. **Named volume**  
-   Dikelola oleh Docker. Cocok untuk data persisten seperti database.
+```powershell
+docker version
+docker run hello-world
+```
 
-2. **Bind mount**  
-   Direktori/file host dipetakan langsung ke container. Cocok untuk source code, konfigurasi, atau konten web yang sering diedit.
-
-## 2.3 Menjalankan Service Container Sederhana
-
-Jalankan container Nginx:
+### 4. Operasi Dasar Docker Image
 
 ```bash
-docker run -d --name svc-nginx -p 8080:80 nginx:latest
+docker pull nginx
+docker pull nginx:1.26
+docker pull ubuntu:22.04
+docker pull alpine:3.20
+docker images
+docker image inspect nginx
+docker image history nginx
 ```
 
-Cek status:
+### 5. Menjalankan dan Mengelola Container
 
 ```bash
+docker run -d --name web-server nginx
+docker run -d --name web-public -p 8080:80 nginx
 docker ps
+docker logs web-server
+docker stats
+docker inspect web-server
 ```
 
 Akses dari browser:
@@ -290,909 +188,1242 @@ Akses dari browser:
 http://localhost:8080
 ```
 
-Cek log:
+Container interaktif:
 
 ```bash
-docker logs svc-nginx
+docker run -it --name ubuntu-test ubuntu:22.04 /bin/bash
 ```
 
-Masuk ke shell container:
+Di dalam container:
 
 ```bash
-docker exec -it svc-nginx /bin/sh
-```
-
-Keluar dari shell:
-
-```bash
+cat /etc/os-release
+apt update && apt install -y curl
 exit
 ```
 
-Stop, start, dan hapus container:
+Lifecycle container:
 
 ```bash
-docker stop svc-nginx
-docker start svc-nginx
-docker rm -f svc-nginx
+docker stop web-server
+docker start web-server
+docker restart web-server
+docker rm -f web-server web-public ubuntu-test
+docker container prune
 ```
 
-## 2.4 Named Volume
-
-Buat volume:
+### 6. Membuat Custom Image Dockerfile
 
 ```bash
-docker volume create labdata
+mkdir -p ~/docker-lab/custom-web
+cd ~/docker-lab/custom-web
 ```
 
-Tulis file ke volume menggunakan container sementara:
+Buat `index.html`:
 
 ```bash
-docker run --rm \
-  --mount source=labdata,target=/data \
-  alpine sh -c "date > /data/hasil.txt && echo 'data praktikum' >> /data/hasil.txt"
-```
-
-Baca kembali data dari volume:
-
-```bash
-docker run --rm \
-  --mount source=labdata,target=/data \
-  alpine cat /data/hasil.txt
-```
-
-Inspeksi volume:
-
-```bash
-docker volume inspect labdata
-```
-
-Hapus volume bila tidak diperlukan:
-
-```bash
-docker volume rm labdata
-```
-
-## 2.5 Bind Mount
-
-Buat direktori host:
-
-```bash
-mkdir -p bind-demo/html
-cat > bind-demo/html/index.html <<'EOF'
-<h1>Bind Mount Docker</h1>
-<p>Konten ini berasal dari host.</p>
+cat > index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Docker Lab PENS</title>
+</head>
+<body>
+  <h1>Docker Lab PENS</h1>
+  <p>Container berhasil berjalan.</p>
+  <p>Server: Nginx on Docker</p>
+  <p>Praktikum: Modul 1 Docker dan Instalasi</p>
+</body>
+</html>
 EOF
 ```
 
-Jalankan Nginx dengan bind mount:
+Buat `Dockerfile`:
 
 ```bash
-docker run -d --name bind-nginx \
-  -p 8081:80 \
-  --mount type=bind,source="$(pwd)/bind-demo/html",target=/usr/share/nginx/html,readonly \
-  nginx:latest
+cat > Dockerfile <<'EOF'
+FROM nginx:1.26-alpine
+LABEL maintainer="admin@pens.ac.id"
+LABEL description="Custom Nginx untuk praktikum Docker PENS"
+LABEL version="1.0"
+RUN rm -rf /usr/share/nginx/html/*
+COPY index.html /usr/share/nginx/html/index.html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+EOF
+```
+
+Build dan jalankan:
+
+```bash
+docker build -t pens-web:1.0 .
+docker images | grep pens-web
+docker run -d --name pens-app -p 9090:80 pens-web:1.0
+curl http://localhost:9090
 ```
 
 Akses:
 
 ```text
-http://localhost:8081
+http://localhost:9090
 ```
 
-Ubah file di host:
+Cek layer:
 
 ```bash
-cat > bind-demo/html/index.html <<'EOF'
-<h1>Konten Berubah</h1>
-<p>Perubahan dilakukan dari host dan langsung terlihat di container.</p>
-EOF
+docker image history nginx:1.26-alpine
+docker image history pens-web:1.0
 ```
 
-Refresh browser.
+## Pertanyaan Modul 1
 
-Hapus container:
+1. Sebutkan minimal tiga perbedaan VM dan container.
+2. Apa fungsi `containerd` dan `runc`?
+3. Mengapa Docker membutuhkan kernel Linux?
+4. Jelaskan perbedaan `docker run` dan `docker exec`.
+5. Apa perbedaan `EXPOSE` di Dockerfile dan flag `-p` pada `docker run`?
 
-```bash
-docker rm -f bind-nginx
-```
+## Checklist Modul 1
 
-## 2.6 Analisis
-
-1. Apa perbedaan named volume dan bind mount?
-2. Pada kasus database, mengapa named volume lebih disarankan?
-3. Mengapa bind mount sebaiknya diberi opsi `readonly` jika container hanya perlu membaca file?
-4. Apa yang terjadi bila direktori host yang di-bind mount kosong, tetapi direktori target container sudah berisi file?
+- [ ] Docker Engine terinstal.
+- [ ] Docker Daemon aktif.
+- [ ] `docker run hello-world` berhasil.
+- [ ] Nginx container dapat diakses pada port 8080.
+- [ ] Custom image `pens-web:1.0` berhasil dibuat.
+- [ ] Container `pens-app` dapat diakses pada port 9090.
 
 ---
 
-# Praktikum 3 — Web Service di Docker: Apache dan Nginx
+# Modul 2 — Docker Service, Volume, dan Mount Point
 
-## 3.1 Tujuan
+## Tujuan Pembelajaran
 
-Mahasiswa mampu menjalankan dua web service berbeda, yaitu Apache HTTP Server dan Nginx, serta memahami port mapping dan Docker Compose.
+Mahasiswa mampu:
 
-## 3.2 Teori Singkat
+1. Mengelola Docker network.
+2. Menghubungkan container dalam user-defined bridge network.
+3. Menjelaskan volume, bind mount, dan tmpfs.
+4. Menggunakan Docker Compose untuk multi-container application.
+5. Menggunakan `depends_on` dan `healthcheck`.
 
-Apache HTTP Server dan Nginx adalah web server yang banyak digunakan. Dalam Docker:
+## Dasar Teori
 
-- Apache official image umumnya menggunakan nama image `httpd`.
-- Nginx official image menggunakan nama image `nginx`.
-- Port container biasanya `80`, lalu dipetakan ke port host berbeda agar tidak konflik.
+| Jenis Mount | Lokasi | Persisten | Cocok untuk |
+|---|---|---|---|
+| Volume | Dikelola Docker | Ya | Database dan persistent data |
+| Bind mount | Path host | Ya | Source code dan konfigurasi |
+| tmpfs | RAM | Tidak | Cache dan data sementara |
 
-Contoh port mapping:
+User-defined bridge network mendukung DNS resolution antar container berdasarkan nama service atau nama container.
 
-```text
-Host 8080 → Container Apache 80
-Host 8081 → Container Nginx 80
-```
+## Langkah Praktikum
 
-## 3.3 Persiapan Direktori
-
-```bash
-mkdir -p 01-web/apache-html 01-web/nginx-html
-cd 01-web
-```
-
-Buat halaman Apache:
+### 1. Docker Network
 
 ```bash
-cat > apache-html/index.html <<'EOF'
-<!doctype html>
-<html>
-<head><title>Apache Docker</title></head>
-<body>
-  <h1>Apache HTTP Server di Docker</h1>
-  <p>Service ini berjalan dari image httpd.</p>
-</body>
-</html>
+docker network ls
+docker network inspect bridge
+docker network create --driver bridge --subnet 172.20.0.0/16 lab-net
+docker network inspect lab-net
+```
+
+Uji DNS antar container:
+
+```bash
+docker run -d --name server-a --network lab-net nginx:alpine
+docker run -d --name server-b --network lab-net nginx:alpine
+docker exec server-a ping -c 3 server-b
+docker exec server-b ping -c 3 server-a
+docker rm -f server-a server-b
+```
+
+### 2. Docker Volume
+
+```bash
+docker volume create data-vol
+docker volume ls
+docker volume inspect data-vol
+docker run -d --name writer -v data-vol:/app/data alpine:3.20 sh -c "while true; do date >> /app/data/log.txt; sleep 5; done"
+sleep 15
+docker run --rm -v data-vol:/data alpine:3.20 cat /data/log.txt
+docker rm -f writer
+docker run --rm -v data-vol:/data alpine:3.20 cat /data/log.txt
+```
+
+Backup volume:
+
+```bash
+docker run --rm -v data-vol:/source:ro -v $(pwd):/backup alpine:3.20 tar czf /backup/data-vol-backup.tar.gz -C /source .
+```
+
+Restore volume:
+
+```bash
+docker volume create data-vol-restored
+docker run --rm -v data-vol-restored:/target -v $(pwd):/backup:ro alpine:3.20 tar xzf /backup/data-vol-backup.tar.gz -C /target
+docker run --rm -v data-vol-restored:/data alpine:3.20 cat /data/log.txt
+```
+
+### 3. Bind Mount
+
+```bash
+mkdir -p ~/docker-lab/web-dev/html
+cd ~/docker-lab/web-dev
+cat > html/index.html <<'EOF'
+<h1>Hello dari Bind Mount</h1>
+<p>Timestamp: VERSI-1</p>
+EOF
+
+docker run -d --name dev-server -p 8080:80 -v $(pwd)/html:/usr/share/nginx/html:ro nginx:alpine
+curl http://localhost:8080
+sed -i 's/VERSI-1/VERSI-2 diedit live/' html/index.html
+curl http://localhost:8080
+docker rm -f dev-server
+```
+
+### 4. tmpfs Mount
+
+```bash
+docker run -d --name tmpfs-demo --tmpfs /app/cache:size=64m alpine:3.20 sh -c "echo secret-data > /app/cache/token.txt && sleep 3600"
+docker exec tmpfs-demo cat /app/cache/token.txt
+docker stop tmpfs-demo && docker start tmpfs-demo
+docker exec tmpfs-demo ls /app/cache
+docker rm -f tmpfs-demo
+```
+
+### 5. Docker Compose Multi-Container
+
+Buat project:
+
+```bash
+mkdir -p ~/docker-lab/compose-app/html ~/docker-lab/compose-app/app
+cd ~/docker-lab/compose-app
+```
+
+Buat `html/index.html`:
+
+```bash
+cat > html/index.html <<'EOF'
+<h1>Docker Compose Lab</h1>
+<p>Nginx ke Flask ke PostgreSQL</p>
+<p>Endpoint backend: /api/health</p>
 EOF
 ```
 
-Buat halaman Nginx:
+Buat Flask app:
 
 ```bash
-cat > nginx-html/index.html <<'EOF'
-<!doctype html>
-<html>
-<head><title>Nginx Docker</title></head>
-<body>
-  <h1>Nginx di Docker</h1>
-  <p>Service ini berjalan dari image nginx.</p>
-</body>
-</html>
+cat > app/requirements.txt <<'EOF'
+flask==3.1.*
+psycopg2-binary==2.9.*
+EOF
+
+cat > app/app.py <<'EOF'
+import os, socket, datetime
+from flask import Flask, jsonify
+import psycopg2
+app = Flask(__name__)
+@app.route("/api/health")
+def health():
+    result = {"status":"ok", "hostname":socket.gethostname(), "timestamp":datetime.datetime.now().isoformat()}
+    try:
+        conn = psycopg2.connect(host=os.environ.get("DB_HOST","db"), dbname=os.environ.get("DB_NAME","labdb"), user=os.environ.get("DB_USER","labuser"), password=os.environ.get("DB_PASS","labpass123"))
+        cur = conn.cursor()
+        cur.execute("SELECT version();")
+        result["database"] = cur.fetchone()[0]
+        result["db_status"] = "connected"
+        cur.close()
+        conn.close()
+    except Exception as e:
+        result["db_status"] = str(e)
+    return jsonify(result)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+EOF
+
+cat > app/Dockerfile <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+EXPOSE 5000
+CMD ["python", "app.py"]
 EOF
 ```
 
-## 3.4 Menjalankan Apache dengan Docker CLI
+Buat `nginx.conf`:
 
 ```bash
-docker run -d --name web-apache \
-  -p 8080:80 \
-  --mount type=bind,source="$(pwd)/apache-html",target=/usr/local/apache2/htdocs,readonly \
-  httpd:latest
+cat > nginx.conf <<'EOF'
+server {
+  listen 80;
+  location / {
+    root /usr/share/nginx/html;
+    index index.html;
+  }
+  location /api/ {
+    proxy_pass http://app:5000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+EOF
 ```
 
-Akses:
-
-```text
-http://localhost:8080
-```
-
-Cek log:
+Buat `docker-compose.yml`:
 
 ```bash
-docker logs web-apache
-```
-
-## 3.5 Menjalankan Nginx dengan Docker CLI
-
-```bash
-docker run -d --name web-nginx \
-  -p 8081:80 \
-  --mount type=bind,source="$(pwd)/nginx-html",target=/usr/share/nginx/html,readonly \
-  nginx:latest
-```
-
-Akses:
-
-```text
-http://localhost:8081
-```
-
-Cek log:
-
-```bash
-docker logs web-nginx
-```
-
-Hapus container CLI sebelum masuk ke Compose:
-
-```bash
-docker rm -f web-apache web-nginx
-```
-
-## 3.6 Menjalankan Apache dan Nginx dengan Docker Compose
-
-Buat file `compose.yaml`:
-
-```bash
-cat > compose.yaml <<'EOF'
+cat > docker-compose.yml <<'EOF'
 services:
-  apache:
-    image: httpd:latest
-    container_name: lab-apache
+  web:
+    image: nginx:alpine
+    container_name: lab-web
     ports:
       - "8080:80"
     volumes:
-      - ./apache-html:/usr/local/apache2/htdocs:ro
-
-  nginx:
-    image: nginx:latest
-    container_name: lab-nginx
-    ports:
-      - "8081:80"
+      - ./html:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend
+    depends_on:
+      - app
+    restart: unless-stopped
+  app:
+    build: ./app
+    container_name: lab-app
+    environment:
+      - DB_HOST=db
+      - DB_NAME=labdb
+      - DB_USER=labuser
+      - DB_PASS=labpass123
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    container_name: lab-db
+    environment:
+      POSTGRES_DB: labdb
+      POSTGRES_USER: labuser
+      POSTGRES_PASSWORD: labpass123
     volumes:
-      - ./nginx-html:/usr/share/nginx/html:ro
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labuser -d labdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  pg-data:
+networks:
+  frontend:
+  backend:
 EOF
 ```
 
 Jalankan:
 
 ```bash
-docker compose up -d
-```
-
-Cek service:
-
-```bash
+docker compose up --build -d
 docker compose ps
+curl http://localhost:8080
+curl http://localhost:8080/api/health
+docker compose logs --tail 30
 ```
 
-Lihat log:
+## Pertanyaan Modul 2
 
-```bash
-docker compose logs -f
-```
+1. Apa perbedaan default bridge dan user-defined bridge?
+2. Kapan menggunakan volume, bind mount, dan tmpfs?
+3. Apa fungsi `depends_on` dan `healthcheck`?
+4. Jelaskan alur request browser ke Nginx ke Flask ke PostgreSQL.
+5. Apa efek `docker compose down -v`?
 
-Akses:
+## Checklist Modul 2
 
-```text
-http://localhost:8080
-http://localhost:8081
-```
-
-Stop dan hapus service:
-
-```bash
-docker compose down
-```
-
-## 3.7 Tugas Praktikum
-
-1. Ubah konten `apache-html/index.html` dan `nginx-html/index.html`.
-2. Tambahkan file `info.html` pada kedua service.
-3. Akses:
-
-```text
-http://localhost:8080/info.html
-http://localhost:8081/info.html
-```
-
-4. Bandingkan format log Apache dan Nginx.
-5. Dokumentasikan perbedaan lokasi document root Apache dan Nginx di container.
+- [ ] User-defined bridge berhasil dibuat.
+- [ ] Container dapat resolve nama container lain.
+- [ ] Named volume tetap menyimpan data setelah container dihapus.
+- [ ] Bind mount menampilkan perubahan file host secara langsung.
+- [ ] tmpfs hilang setelah restart container.
+- [ ] Stack Compose tiga service berjalan.
+- [ ] Endpoint `/api/health` menampilkan database connected.
 
 ---
 
-# Praktikum 4 — Database Service di Docker: PostgreSQL
+# Modul 3 — Web Service Docker: Apache dan Nginx
 
-## 4.1 Tujuan
+## Tujuan Pembelajaran
 
-Mahasiswa mampu menjalankan PostgreSQL sebagai service container, menggunakan persistent volume, dan melakukan operasi database dasar.
+Mahasiswa mampu:
 
-## 4.2 Teori Singkat
+1. Menjalankan Apache `httpd` dengan virtual host.
+2. Menjalankan Nginx sebagai reverse proxy dan SSL termination.
+3. Membuat self-signed certificate.
+4. Menghubungkan Nginx, Apache, Flask, dan PostgreSQL dalam Docker Compose.
+5. Memisahkan log per-site.
 
-Database container membutuhkan persistent storage. Jika container dihapus tanpa volume, data database ikut hilang. Oleh karena itu, PostgreSQL di Docker harus memakai named volume atau storage eksternal.
-
-Variabel lingkungan penting pada image PostgreSQL:
-
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-- `POSTGRES_DB`
-
-Data utama PostgreSQL di container official image berada di:
+## Topologi
 
 ```text
-/var/lib/postgresql/data
+Browser atau curl
+  │
+  ├─ http://site1.lab:8080
+  └─ https://site1.lab:8443
+        │
+        ▼
+Nginx reverse proxy
+        ├─ site1.lab ke Apache site1
+        ├─ site2.lab ke Apache site2
+        └─ app.lab ke Flask API dan PostgreSQL
 ```
 
-## 4.3 Persiapan Direktori
+## Langkah Praktikum
+
+### 1. Persiapan Project
 
 ```bash
-cd ../
-mkdir -p 02-postgres
-cd 02-postgres
+mkdir -p ~/docker-lab/web-service/apache/sites ~/docker-lab/web-service/apache/html-site1 ~/docker-lab/web-service/apache/html-site2 ~/docker-lab/web-service/nginx ~/docker-lab/web-service/flask ~/docker-lab/web-service/certs ~/docker-lab/web-service/logs
+cd ~/docker-lab/web-service
+echo "127.0.0.1 site1.lab site2.lab app.lab" | sudo tee -a /etc/hosts
 ```
 
-## 4.4 Menjalankan PostgreSQL dengan Docker CLI
+### 2. Apache Virtual Host
 
 ```bash
-docker volume create pgdata
+cat > apache/html-site1/index.html <<'EOF'
+<h1>Site 1 Company Profile</h1>
+<p>Virtual Host: site1.lab</p>
+<p>Server: Apache httpd di Docker</p>
+EOF
+
+cat > apache/html-site2/index.html <<'EOF'
+<h1>Site 2 Blog</h1>
+<p>Virtual Host: site2.lab</p>
+<p>Server: Apache httpd di Docker</p>
+EOF
 ```
+
+Buat `apache/sites/vhosts.conf`:
 
 ```bash
-docker run -d --name lab-postgres \
-  -e POSTGRES_USER=admin \
-  -e POSTGRES_PASSWORD=admin123 \
-  -e POSTGRES_DB=kampus \
-  -p 5432:5432 \
-  -v pgdata:/var/lib/postgresql/data \
-  postgres:latest
+cat > apache/sites/vhosts.conf <<'EOF'
+<VirtualHost *:80>
+  ServerName site1.lab
+  DocumentRoot /usr/local/apache2/htdocs/site1
+  <Directory "/usr/local/apache2/htdocs/site1">
+    AllowOverride None
+    Require all granted
+  </Directory>
+  ErrorLog /var/log/apache2/site1-error.log
+  CustomLog /var/log/apache2/site1-access.log combined
+</VirtualHost>
+<VirtualHost *:80>
+  ServerName site2.lab
+  DocumentRoot /usr/local/apache2/htdocs/site2
+  <Directory "/usr/local/apache2/htdocs/site2">
+    AllowOverride None
+    Require all granted
+  </Directory>
+  ErrorLog /var/log/apache2/site2-error.log
+  CustomLog /var/log/apache2/site2-access.log combined
+</VirtualHost>
+EOF
 ```
 
-Cek log:
+Buat `apache/Dockerfile`:
 
 ```bash
-docker logs lab-postgres
+cat > apache/Dockerfile <<'EOF'
+FROM httpd:2.4-alpine
+RUN echo "Include conf/extra/vhosts.conf" >> /usr/local/apache2/conf/httpd.conf
+RUN mkdir -p /var/log/apache2
+COPY sites/vhosts.conf /usr/local/apache2/conf/extra/vhosts.conf
+COPY html-site1/ /usr/local/apache2/htdocs/site1/
+COPY html-site2/ /usr/local/apache2/htdocs/site2/
+EXPOSE 80
+EOF
 ```
 
-Masuk ke `psql`:
+### 3. SSL Certificate
 
 ```bash
-docker exec -it lab-postgres psql -U admin -d kampus
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout certs/server.key -out certs/server.crt -subj "/C=ID/ST=Jawa Timur/L=Surabaya/O=PENS Lab/CN=*.lab" -addext "subjectAltName=DNS:*.lab,DNS:site1.lab,DNS:site2.lab,DNS:app.lab"
+ls -la certs
 ```
 
-Jalankan SQL:
-
-```sql
-CREATE TABLE mahasiswa (
-  nrp VARCHAR(20) PRIMARY KEY,
-  nama TEXT NOT NULL,
-  kelas TEXT NOT NULL
-);
-
-INSERT INTO mahasiswa (nrp, nama, kelas) VALUES
-('31240001', 'Andi', 'TI-1A'),
-('31240002', 'Budi', 'TI-1A');
-
-SELECT * FROM mahasiswa;
-```
-
-Keluar dari `psql`:
-
-```sql
-\q
-```
-
-Uji persistensi:
+### 4. Nginx Reverse Proxy
 
 ```bash
-docker rm -f lab-postgres
+cat > nginx/default.conf <<'EOF'
+upstream apache_backend { server apache-web:80; }
+upstream flask_backend { server flask-app:5000; }
+server {
+  listen 80;
+  server_name site1.lab site2.lab app.lab;
+  return 301 https://$host$request_uri;
+}
+server {
+  listen 443 ssl;
+  server_name site1.lab;
+  ssl_certificate /etc/nginx/certs/server.crt;
+  ssl_certificate_key /etc/nginx/certs/server.key;
+  location / {
+    proxy_pass http://apache_backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+  access_log /var/log/nginx/site1-access.log;
+  error_log /var/log/nginx/site1-error.log;
+}
+server {
+  listen 443 ssl;
+  server_name site2.lab;
+  ssl_certificate /etc/nginx/certs/server.crt;
+  ssl_certificate_key /etc/nginx/certs/server.key;
+  location / {
+    proxy_pass http://apache_backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+  access_log /var/log/nginx/site2-access.log;
+  error_log /var/log/nginx/site2-error.log;
+}
+server {
+  listen 443 ssl;
+  server_name app.lab;
+  ssl_certificate /etc/nginx/certs/server.crt;
+  ssl_certificate_key /etc/nginx/certs/server.key;
+  location / {
+    proxy_pass http://flask_backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+  access_log /var/log/nginx/app-access.log;
+  error_log /var/log/nginx/app-error.log;
+}
+EOF
 ```
 
-Jalankan ulang dengan volume yang sama:
+### 5. Flask Backend
 
 ```bash
-docker run -d --name lab-postgres \
-  -e POSTGRES_USER=admin \
-  -e POSTGRES_PASSWORD=admin123 \
-  -e POSTGRES_DB=kampus \
-  -p 5432:5432 \
-  -v pgdata:/var/lib/postgresql/data \
-  postgres:latest
+cat > flask/requirements.txt <<'EOF'
+flask==3.1.*
+psycopg2-binary==2.9.*
+EOF
+
+cat > flask/app.py <<'EOF'
+import os, socket, datetime
+from flask import Flask, jsonify, request
+import psycopg2
+app = Flask(__name__)
+def get_db():
+    return psycopg2.connect(host=os.environ.get("DB_HOST","postgres-db"), dbname=os.environ.get("DB_NAME","labdb"), user=os.environ.get("DB_USER","labuser"), password=os.environ.get("DB_PASS","labpass123"))
+@app.route("/")
+def index():
+    return jsonify({"service":"Flask Backend API", "hostname":socket.gethostname(), "timestamp":datetime.datetime.now().isoformat(), "client_ip":request.headers.get("X-Real-IP", request.remote_addr)})
+@app.route("/api/health")
+def health():
+    result = {"status":"ok"}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT version();")
+        result["database"] = cur.fetchone()[0]
+        result["db_status"] = "connected"
+        cur.close()
+        conn.close()
+    except Exception as e:
+        result["db_status"] = str(e)
+    return jsonify(result)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+EOF
+
+cat > flask/Dockerfile <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+EXPOSE 5000
+CMD ["python", "app.py"]
+EOF
 ```
 
-Cek data:
+### 6. Docker Compose Web Stack
 
 ```bash
-docker exec -it lab-postgres psql -U admin -d kampus -c "SELECT * FROM mahasiswa;"
-```
-
-Hapus container sebelum Compose:
-
-```bash
-docker rm -f lab-postgres
-```
-
-## 4.5 Menjalankan PostgreSQL dengan Docker Compose
-
-Buat `compose.yaml`:
-
-```bash
-cat > compose.yaml <<'EOF'
+cat > docker-compose.yml <<'EOF'
 services:
-  postgres:
-    image: postgres:latest
-    container_name: lab-postgres-compose
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - web-net
+    depends_on:
+      - apache-web
+      - flask-app
+  apache-web:
+    build: ./apache
+    container_name: apache-web
+    volumes:
+      - ./logs/apache:/var/log/apache2
+    networks:
+      - web-net
+  flask-app:
+    build: ./flask
+    container_name: flask-app
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      POSTGRES_DB: kampus
+      DB_HOST: postgres-db
+      DB_NAME: labdb
+      DB_USER: labuser
+      DB_PASS: labpass123
+    networks:
+      - web-net
+      - db-net
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: labdb
+      POSTGRES_USER: labuser
+      POSTGRES_PASSWORD: labpass123
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - db-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labuser -d labdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  pg-data:
+networks:
+  web-net:
+  db-net:
+EOF
+```
+
+Jalankan dan uji:
+
+```bash
+docker compose up --build -d
+docker compose ps
+curl -I http://site1.lab:8080
+curl -k https://site1.lab:8443
+curl -k https://site2.lab:8443
+curl -k https://app.lab:8443/api/health
+ls -la logs/nginx
+ls -la logs/apache
+```
+
+## Pertanyaan Modul 3
+
+1. Apa perbedaan document root Apache dan Nginx?
+2. Mengapa reverse proxy memakai nama service container?
+3. Apa fungsi self-signed certificate dalam praktikum ini?
+4. Mengapa browser memberi warning pada self-signed certificate?
+5. Jelaskan alur request ke `https://app.lab:8443/api/health`.
+
+## Checklist Modul 3
+
+- [ ] Hostname `site1.lab`, `site2.lab`, dan `app.lab` dikenali host.
+- [ ] Certificate berhasil dibuat.
+- [ ] Apache virtual host berjalan.
+- [ ] Nginx reverse proxy berjalan pada port 8080 dan 8443.
+- [ ] Endpoint app menampilkan database connected.
+- [ ] Log per-site tersedia.
+
+---
+
+# Modul 4 — Database Service Docker: PostgreSQL
+
+## Tujuan Pembelajaran
+
+Mahasiswa mampu:
+
+1. Menjalankan PostgreSQL 16 di Docker.
+2. Menggunakan init script untuk membuat schema dan tabel.
+3. Menggunakan Docker volume untuk persistent database.
+4. Mengakses PostgreSQL melalui psql dan pgAdmin4.
+5. Melakukan CRUD, backup, restore, dan monitoring dasar.
+
+## Langkah Praktikum
+
+### 1. Persiapan
+
+```bash
+mkdir -p ~/docker-lab/postgresql/init ~/docker-lab/postgresql/config ~/docker-lab/postgresql/backup
+cd ~/docker-lab/postgresql
+```
+
+### 2. Init Script
+
+```bash
+cat > init/01-create-schema.sql <<'EOF'
+CREATE SCHEMA IF NOT EXISTS app;
+CREATE TABLE app.mahasiswa (
+  id SERIAL PRIMARY KEY,
+  nrp VARCHAR(15) UNIQUE NOT NULL,
+  nama VARCHAR(100) NOT NULL,
+  kelas CHAR(1),
+  kelompok INTEGER,
+  email VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE app.matakuliah (
+  id SERIAL PRIMARY KEY,
+  kode VARCHAR(10) UNIQUE NOT NULL,
+  nama VARCHAR(100) NOT NULL,
+  sks INTEGER
+);
+CREATE TABLE app.nilai (
+  id SERIAL PRIMARY KEY,
+  mahasiswa_id INTEGER REFERENCES app.mahasiswa(id),
+  matakuliah_id INTEGER REFERENCES app.matakuliah(id),
+  nilai_angka NUMERIC(5,2),
+  grade CHAR(2),
+  semester VARCHAR(10)
+);
+CREATE TABLE app.activity_log (
+  id BIGSERIAL PRIMARY KEY,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  level VARCHAR(10) DEFAULT 'INFO',
+  source VARCHAR(50),
+  message TEXT,
+  metadata JSONB
+);
+CREATE INDEX idx_mahasiswa_kelas ON app.mahasiswa(kelas);
+CREATE INDEX idx_activity_log_level ON app.activity_log(level);
+CREATE INDEX idx_activity_log_metadata ON app.activity_log USING GIN(metadata);
+INSERT INTO app.matakuliah (kode, nama, sks) VALUES ('JAR01','Administrasi Jaringan',3), ('SBD01','Sistem Basis Data',3), ('SO01','Sistem Operasi',2);
+INSERT INTO app.mahasiswa (nrp, nama, kelas, kelompok, email) VALUES ('3122600001','Ahmad Fauzi','A',1,'ahmad@student.pens.ac.id'), ('3122600002','Budi Santoso','A',1,'budi@student.pens.ac.id'), ('3122600003','Citra Dewi','B',2,'citra@student.pens.ac.id');
+INSERT INTO app.nilai (mahasiswa_id, matakuliah_id, nilai_angka, grade, semester) VALUES (1,1,85.50,'A','2025-1'), (2,1,92.00,'A','2025-1'), (3,2,70.25,'B','2025-1');
+EOF
+```
+
+### 3. Custom PostgreSQL Config
+
+```bash
+cat > config/custom-postgresql.conf <<'EOF'
+listen_addresses = '*'
+max_connections = 50
+shared_buffers = 128MB
+work_mem = 4MB
+logging_collector = on
+log_directory = '/var/log/postgresql'
+log_filename = 'postgresql-%Y-%m-%d.log'
+log_statement = 'mod'
+timezone = 'Asia/Jakarta'
+log_timezone = 'Asia/Jakarta'
+EOF
+```
+
+### 4. Compose PostgreSQL dan pgAdmin4
+
+```bash
+cat > docker-compose.yml <<'EOF'
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: labdb
+      POSTGRES_USER: labuser
+      POSTGRES_PASSWORD: labpass123
+      TZ: Asia/Jakarta
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
+      - pg-data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - ./config/custom-postgresql.conf:/etc/postgresql/custom.conf:ro
+      - ./backup:/backup
+      - pg-logs:/var/log/postgresql
+    command: postgres -c config_file=/etc/postgresql/custom.conf
+    networks:
+      - db-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labuser -d labdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pens.ac.id
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - db-net
+    depends_on:
+      db:
+        condition: service_healthy
 volumes:
-  pgdata:
+  pg-data:
+  pg-logs:
+  pgadmin-data:
+networks:
+  db-net:
 EOF
 ```
 
-Jalankan:
+Deploy:
 
 ```bash
 docker compose up -d
-```
-
-Cek service:
-
-```bash
 docker compose ps
+docker compose logs db --tail 20
 ```
 
-Akses database:
+### 5. Verifikasi Database
 
 ```bash
-docker compose exec postgres psql -U admin -d kampus
+sudo apt install -y postgresql-client
+psql -h localhost -U labuser -d labdb
 ```
 
-## 4.6 Backup dan Restore Sederhana
-
-Backup:
+Query dari host atau `docker exec`:
 
 ```bash
-docker compose exec postgres pg_dump -U admin kampus > backup-kampus.sql
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT * FROM app.mahasiswa;"
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT * FROM app.matakuliah;"
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT m.nrp, m.nama, mk.nama, n.nilai_angka FROM app.nilai n JOIN app.mahasiswa m ON n.mahasiswa_id = m.id JOIN app.matakuliah mk ON n.matakuliah_id = mk.id;"
 ```
 
-Restore ke database yang sama atau database baru:
+Akses pgAdmin:
+
+```text
+URL: http://localhost:5050
+Email: admin@pens.ac.id
+Password: admin123
+Host database saat Add Server: db
+Port: 5432
+Database: labdb
+Username: labuser
+Password: labpass123
+```
+
+### 6. CRUD dan JSONB
 
 ```bash
-cat backup-kampus.sql | docker compose exec -T postgres psql -U admin -d kampus
+docker exec -it postgres-db psql -U labuser -d labdb -c "INSERT INTO app.mahasiswa (nrp, nama, kelas, kelompok, email) VALUES ('3122600010','Fajar Rizki','D',5,'fajar@student.pens.ac.id');"
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT * FROM app.mahasiswa WHERE kelas = 'A';"
+docker exec -it postgres-db psql -U labuser -d labdb -c "UPDATE app.mahasiswa SET email = 'fajar.rizki@student.pens.ac.id' WHERE nrp = '3122600010';"
+docker exec -it postgres-db psql -U labuser -d labdb -c "INSERT INTO app.activity_log (level, source, message, metadata) VALUES ('INFO','web-app','User login','{"user":"admin","ip":"192.168.1.10"}');"
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT * FROM app.activity_log;"
 ```
 
-Stop service:
+### 7. Backup dan Restore
 
 ```bash
-docker compose down
+docker exec postgres-db pg_dump -U labuser -d labdb -Fc -f /backup/labdb_backup.dump
+docker exec postgres-db pg_dump -U labuser -d labdb -f /backup/labdb_backup.sql
+ls -la backup
+docker exec postgres-db psql -U labuser -d postgres -c "CREATE DATABASE labdb_restore;"
+docker exec postgres-db pg_restore -U labuser -d labdb_restore /backup/labdb_backup.dump
+docker exec postgres-db psql -U labuser -d labdb_restore -c "SELECT * FROM app.mahasiswa;"
 ```
 
-Hapus juga volume bila ingin reset total:
+### 8. Monitoring PostgreSQL
 
 ```bash
-docker compose down -v
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT datname, pg_size_pretty(pg_database_size(datname)) AS size FROM pg_database;"
+docker exec -it postgres-db psql -U labuser -d labdb -c "SELECT pid, usename, datname, client_addr, state, query FROM pg_stat_activity WHERE datname = 'labdb';"
+docker exec postgres-db ls /var/log/postgresql
+docker exec postgres-db sh -c 'ls -la /var/log/postgresql && tail -30 /var/log/postgresql/*.log'
 ```
 
-## 4.7 Tugas Praktikum
+## Pertanyaan Modul 4
 
-1. Buat tabel `aset_it` dengan kolom:
-   - `id`
-   - `hostname`
-   - `ip_address`
-   - `lokasi`
-   - `status`
-2. Masukkan minimal 5 data.
-3. Tampilkan aset dengan status `aktif`.
-4. Lakukan backup database.
-5. Hapus container, jalankan ulang, lalu buktikan data masih tersedia.
+1. Mengapa init script hanya berjalan saat volume data kosong?
+2. Mengapa database membutuhkan volume?
+3. Apa beda backup SQL plain text dan backup custom format?
+4. Mengapa pgAdmin memakai host `db`, bukan `localhost`?
+5. Apa manfaat index pada tabel log?
+
+## Checklist Modul 4
+
+- [ ] PostgreSQL running dan healthy.
+- [ ] Schema `app` dan tabel tersedia.
+- [ ] `psql` dari host dapat connect.
+- [ ] pgAdmin4 dapat digunakan.
+- [ ] CRUD berhasil.
+- [ ] Backup dan restore berhasil.
+- [ ] Data tetap ada setelah container dibuat ulang.
 
 ---
 
-# Praktikum 5 — Logging Service Docker dengan PostgreSQL
+# Modul 5 — Logging Service Docker dengan PostgreSQL
 
-## 5.1 Tujuan
+## Tujuan Pembelajaran
 
-Mahasiswa mampu membangun pipeline logging sederhana menggunakan beberapa service Docker:
+Mahasiswa mampu:
+
+1. Menjelaskan centralized logging.
+2. Menjalankan Fluent Bit sebagai collector.
+3. Menggunakan Docker logging driver `fluentd`.
+4. Menyimpan log ke PostgreSQL.
+5. Menganalisis log menggunakan SQL.
+
+## Topologi
 
 ```text
-log-generator container → shared volume log file → log-collector container → PostgreSQL container
+Nginx, Flask, dan Log Generator
+        │
+        ▼
+Docker logging driver fluentd
+        │
+        ▼
+Fluent Bit port 24224
+        │
+        ▼
+PostgreSQL schema logs
 ```
 
-## 5.2 Catatan Desain
+## Langkah Praktikum
 
-Docker memiliki logging system bawaan melalui `docker logs` dan logging driver. Namun Docker tidak menyediakan logging driver bawaan langsung ke PostgreSQL. Karena itu, praktikum ini menggunakan pendekatan edukatif:
-
-1. Service aplikasi menghasilkan log JSON.
-2. Log ditulis ke file pada shared volume.
-3. Service collector membaca log tersebut.
-4. Collector memasukkan log ke tabel PostgreSQL.
-
-Dengan pendekatan ini, mahasiswa mempelajari konsep:
-
-- multi-service container,
-- shared volume,
-- log format JSON,
-- ingestion pipeline,
-- penyimpanan log terstruktur di database.
-
-## 5.3 Persiapan Direktori
+### 1. Persiapan
 
 ```bash
-cd ../
-mkdir -p 03-logging-postgres/collector 03-logging-postgres/db
-cd 03-logging-postgres
+mkdir -p ~/docker-lab/logging/fluent-bit ~/docker-lab/logging/generator ~/docker-lab/logging/init ~/docker-lab/logging/collector
+cd ~/docker-lab/logging
 ```
 
-## 5.4 Membuat Tabel Log
-
-Buat file `db/init.sql`:
+### 2. Schema Logging
 
 ```bash
-cat > db/init.sql <<'EOF'
-CREATE TABLE IF NOT EXISTS container_logs (
+cat > init/01-logging-schema.sql <<'EOF'
+CREATE SCHEMA IF NOT EXISTS logs;
+CREATE TABLE logs.container_logs (
   id BIGSERIAL PRIMARY KEY,
-  event_time TIMESTAMPTZ NOT NULL,
-  service_name TEXT NOT NULL,
-  level TEXT NOT NULL,
-  message TEXT NOT NULL,
-  raw JSONB NOT NULL,
-  inserted_at TIMESTAMPTZ DEFAULT now()
+  received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  timestamp TIMESTAMP,
+  container_name VARCHAR(100),
+  source VARCHAR(10),
+  log_level VARCHAR(10),
+  message TEXT,
+  raw_log TEXT,
+  metadata JSONB DEFAULT '{}'
 );
-
-CREATE INDEX IF NOT EXISTS idx_container_logs_event_time
-ON container_logs(event_time);
-
-CREATE INDEX IF NOT EXISTS idx_container_logs_level
-ON container_logs(level);
+CREATE INDEX idx_logs_timestamp ON logs.container_logs(timestamp);
+CREATE INDEX idx_logs_container ON logs.container_logs(container_name);
+CREATE INDEX idx_logs_level ON logs.container_logs(log_level);
+CREATE INDEX idx_logs_metadata ON logs.container_logs USING GIN(metadata);
+CREATE VIEW logs.recent_logs AS SELECT id, timestamp, container_name, log_level, message FROM logs.container_logs ORDER BY id DESC LIMIT 100;
+CREATE VIEW logs.error_summary AS SELECT container_name, log_level, COUNT(*) AS total FROM logs.container_logs WHERE log_level IN ('ERROR','WARN','CRITICAL') GROUP BY container_name, log_level ORDER BY total DESC;
 EOF
 ```
 
-## 5.5 Membuat Aplikasi Penghasil Log
-
-Buat file `app.py`:
+### 3. Fluent Bit Config
 
 ```bash
-cat > app.py <<'EOF'
-import json
-import os
-import random
-import time
-from datetime import datetime, timezone
+cat > fluent-bit/fluent-bit.conf <<'EOF'
+[SERVICE]
+    Flush        5
+    Daemon       Off
+    Log_Level    info
+    Parsers_File parsers.conf
+[INPUT]
+    Name    forward
+    Listen  0.0.0.0
+    Port    24224
+    Tag     docker.*
+[FILTER]
+    Name       parser
+    Match      docker.*
+    Key_Name   log
+    Parser     docker_json
+    Reserve_Data On
+[OUTPUT]
+    Name   stdout
+    Match  docker.*
+    Format json_lines
+EOF
 
-LOG_PATH = os.getenv("LOG_PATH", "/logs/app.log")
-SERVICE_NAME = os.getenv("SERVICE_NAME", "log-generator")
+cat > fluent-bit/parsers.conf <<'EOF'
+[PARSER]
+    Name        docker_json
+    Format      json
+    Time_Key    time
+    Time_Format %Y-%m-%dT%H:%M:%S.%L
+    Time_Keep   On
+EOF
+```
 
-levels = ["INFO", "INFO", "INFO", "WARNING", "ERROR"]
-messages = [
-    "request processed",
-    "user login simulated",
-    "database query simulated",
-    "high latency simulated",
-    "temporary error simulated"
+### 4. Log Generator
+
+```bash
+cat > generator/generator.py <<'EOF'
+import json, time, random, socket, datetime, os
+hostname = socket.gethostname()
+interval = float(os.environ.get("LOG_INTERVAL", "2"))
+events = [
+  ("INFO", "User login successful"),
+  ("INFO", "Health check passed"),
+  ("WARN", "Slow query detected"),
+  ("ERROR", "Failed to connect to database"),
+  ("CRITICAL", "Connection pool exhausted")
 ]
-
-os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-
-counter = 0
 while True:
-    counter += 1
-    event = {
-        "event_time": datetime.now(timezone.utc).isoformat(),
-        "service_name": SERVICE_NAME,
-        "level": random.choice(levels),
-        "message": random.choice(messages),
-        "sequence": counter
-    }
-
-    line = json.dumps(event, ensure_ascii=False)
-    print(line, flush=True)
-
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(line + "\n")
-        f.flush()
-
-    time.sleep(2)
+    level, message = random.choice(events)
+    print(json.dumps({"timestamp":datetime.datetime.now().isoformat(), "level":level, "hostname":hostname, "service":"log-generator", "message":message}), flush=True)
+    time.sleep(interval)
 EOF
-```
 
-## 5.6 Membuat Collector
-
-Buat file `collector/Dockerfile`:
-
-```bash
-cat > collector/Dockerfile <<'EOF'
-FROM python:3.12-slim
-
+cat > generator/Dockerfile <<'EOF'
+FROM python:3.11-alpine
 WORKDIR /app
-RUN pip install --no-cache-dir "psycopg[binary]"
-COPY collector.py /app/collector.py
-
-CMD ["python", "/app/collector.py"]
+COPY generator.py .
+CMD ["python", "generator.py"]
 EOF
 ```
 
-Buat file `collector/collector.py`:
+### 5. Collector Python ke PostgreSQL
 
 ```bash
 cat > collector/collector.py <<'EOF'
-import json
-import os
-import time
-from datetime import datetime
-
-import psycopg
-
-LOG_PATH = os.getenv("LOG_PATH", "/logs/app.log")
-DB_HOST = os.getenv("DB_HOST", "postgres")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "logsdb")
-DB_USER = os.getenv("DB_USER", "logger")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "logger123")
-
-
-def connect_with_retry():
-    dsn = f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
+import json, os, time
+import psycopg2
+log_file = os.getenv("LOG_FILE", "/logs/app.log")
+def connect():
     while True:
         try:
-            conn = psycopg.connect(dsn)
-            conn.autocommit = True
-            print("collector: connected to PostgreSQL", flush=True)
-            return conn
-        except Exception as exc:
-            print(f"collector: waiting for PostgreSQL: {exc}", flush=True)
+            return psycopg2.connect(host=os.getenv("DB_HOST","postgres-db"), dbname=os.getenv("DB_NAME","labdb"), user=os.getenv("DB_USER","labuser"), password=os.getenv("DB_PASS","labpass123"))
+        except Exception as e:
+            print(e, flush=True)
             time.sleep(2)
-
-
-def insert_log(conn, event):
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO container_logs (event_time, service_name, level, message, raw)
-            VALUES (%s, %s, %s, %s, %s::jsonb)
-            """,
-            (
-                event.get("event_time", datetime.utcnow().isoformat()),
-                event.get("service_name", "unknown"),
-                event.get("level", "INFO"),
-                event.get("message", ""),
-                json.dumps(event),
-            ),
-        )
-
-
-def follow_file(path):
-    print(f"collector: watching {path}", flush=True)
+def follow(path):
     while not os.path.exists(path):
-        print("collector: log file not found yet", flush=True)
         time.sleep(1)
-
-    with open(path, "r", encoding="utf-8") as f:
-        f.seek(0, os.SEEK_END)
-        while True:
-            line = f.readline()
-            if not line:
-                time.sleep(1)
-                continue
+    f = open(path, "r", encoding="utf-8")
+    f.seek(0, os.SEEK_END)
+    while True:
+        line = f.readline()
+        if line:
             yield line.strip()
+        else:
+            time.sleep(1)
+conn = connect()
+cur = conn.cursor()
+for line in follow(log_file):
+    try:
+        event = json.loads(line)
+        cur.execute("INSERT INTO logs.container_logs (timestamp, container_name, source, log_level, message, raw_log, metadata) VALUES (%s,%s,%s,%s,%s,%s,%s::jsonb)", (event.get("timestamp"), event.get("service"), "stdout", event.get("level"), event.get("message"), line, json.dumps(event)))
+        conn.commit()
+    except Exception as e:
+        print(e, flush=True)
+        conn.rollback()
+EOF
 
-
-def main():
-    conn = connect_with_retry()
-    for line in follow_file(LOG_PATH):
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-            insert_log(conn, event)
-            print(f"collector: inserted {event.get('level')} seq={event.get('sequence')}", flush=True)
-        except Exception as exc:
-            print(f"collector: failed to process line: {exc}; line={line}", flush=True)
-            try:
-                conn.close()
-            except Exception:
-                pass
-            conn = connect_with_retry()
-
-
-if __name__ == "__main__":
-    main()
+cat > collector/Dockerfile <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir psycopg2-binary==2.9.*
+COPY collector.py .
+CMD ["python", "collector.py"]
 EOF
 ```
 
-## 5.7 Membuat Docker Compose Logging
-
-Buat file `compose.yaml`:
+### 6. Docker Compose Logging Stack
 
 ```bash
-cat > compose.yaml <<'EOF'
+cat > docker-compose.yml <<'EOF'
 services:
-  postgres:
-    image: postgres:latest
+  postgres-db:
+    image: postgres:16-alpine
     container_name: logging-postgres
     environment:
-      POSTGRES_USER: logger
-      POSTGRES_PASSWORD: logger123
-      POSTGRES_DB: logsdb
+      POSTGRES_DB: labdb
+      POSTGRES_USER: labuser
+      POSTGRES_PASSWORD: labpass123
     ports:
       - "5433:5432"
     volumes:
-      - pg_log_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-  log-generator:
-    image: python:3.12-slim
-    container_name: log-generator
-    working_dir: /app
-    environment:
-      SERVICE_NAME: web-simulation
-      LOG_PATH: /logs/app.log
+      - pg-log-data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labuser -d labdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - log-net
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+    container_name: fluent-bit
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
     volumes:
-      - ./app.py:/app/app.py:ro
-      - app_logs:/logs
-    command: python /app/app.py
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    networks:
+      - log-net
+  log-generator:
+    build: ./generator
+    container_name: log-generator
+    environment:
+      LOG_INTERVAL: 2
+    volumes:
+      - app-logs:/logs
+    command: sh -c 'python generator.py | tee -a /logs/app.log'
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.log-generator
     depends_on:
-      - postgres
-
+      - fluent-bit
+    networks:
+      - log-net
   log-collector:
     build: ./collector
     container_name: log-collector
     environment:
-      LOG_PATH: /logs/app.log
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: logsdb
-      DB_USER: logger
-      DB_PASSWORD: logger123
+      DB_HOST: postgres-db
+      DB_NAME: labdb
+      DB_USER: labuser
+      DB_PASS: labpass123
+      LOG_FILE: /logs/app.log
     volumes:
-      - app_logs:/logs:ro
+      - app-logs:/logs:ro
     depends_on:
-      - postgres
-      - log-generator
-
+      postgres-db:
+        condition: service_healthy
+      log-generator:
+        condition: service_started
+    networks:
+      - log-net
 volumes:
-  pg_log_data:
-  app_logs:
+  pg-log-data:
+  app-logs:
+networks:
+  log-net:
 EOF
 ```
 
-Jalankan:
+Jalankan dan analisis:
 
 ```bash
-docker compose up -d --build
-```
-
-Cek status:
-
-```bash
+docker compose up --build -d
 docker compose ps
+docker compose logs fluent-bit --tail 30
+docker compose logs log-collector --tail 30
+docker exec -it logging-postgres psql -U labuser -d labdb -c "SELECT COUNT(*) FROM logs.container_logs;"
+docker exec -it logging-postgres psql -U labuser -d labdb -c "SELECT log_level, COUNT(*) FROM logs.container_logs GROUP BY log_level ORDER BY COUNT(*) DESC;"
+docker exec -it logging-postgres psql -U labuser -d labdb -c "SELECT * FROM logs.recent_logs LIMIT 10;"
+docker exec -it logging-postgres psql -U labuser -d labdb -c "SELECT * FROM logs.error_summary;"
 ```
 
-Lihat log semua service:
+## Catatan Instruktur
 
-```bash
-docker compose logs -f
-```
+Repository menggunakan konsep Fluent Bit dan PostgreSQL sebagai log storage. Pada beberapa image Fluent Bit, output plugin PostgreSQL belum tentu tersedia. Karena itu modul ini memakai dua jalur: Fluent Bit untuk memperlihatkan konsep Docker logging driver `fluentd`, dan collector Python untuk memastikan log benar-benar masuk ke PostgreSQL pada lingkungan lab.
 
-## 5.8 Query Log di PostgreSQL
+## Pertanyaan Modul 5
 
-Tampilkan 10 log terakhir:
+1. Mengapa log container sebaiknya dikirim ke centralized logging?
+2. Apa perbedaan `json-file` dan `fluentd` logging driver?
+3. Mengapa log aplikasi container sebaiknya dikirim ke stdout?
+4. Apa manfaat JSONB untuk metadata log?
+5. Apa risiko menyimpan semua log tanpa retention policy?
 
-```bash
-docker compose exec postgres \
-  psql -U logger -d logsdb \
-  -c "SELECT id, event_time, service_name, level, message FROM container_logs ORDER BY id DESC LIMIT 10;"
-```
+## Checklist Modul 5
 
-Hitung log per level:
-
-```bash
-docker compose exec postgres \
-  psql -U logger -d logsdb \
-  -c "SELECT level, COUNT(*) FROM container_logs GROUP BY level ORDER BY level;"
-```
-
-Cari log `ERROR`:
-
-```bash
-docker compose exec postgres \
-  psql -U logger -d logsdb \
-  -c "SELECT event_time, service_name, message FROM container_logs WHERE level='ERROR' ORDER BY event_time DESC LIMIT 5;"
-```
-
-## 5.9 Observasi Docker Logs
-
-Bandingkan log container dengan data PostgreSQL:
-
-```bash
-docker logs log-generator --tail 5
-docker logs log-collector --tail 5
-```
-
-Pertanyaan:
-
-1. Apakah semua log `log-generator` masuk ke PostgreSQL?
-2. Apa yang terjadi jika `log-collector` dihentikan sementara?
-3. Apakah desain ini cocok untuk produksi? Jelaskan keterbatasannya.
-4. Apa alternatif produksi yang lebih umum untuk centralized logging?
-
-## 5.10 Simulasi Gangguan
-
-Stop collector:
-
-```bash
-docker compose stop log-collector
-```
-
-Biarkan `log-generator` berjalan selama 20 detik, lalu aktifkan kembali:
-
-```bash
-docker compose start log-collector
-```
-
-Amati apakah collector membaca log baru setelah aktif kembali.
-
-Stop semua service:
-
-```bash
-docker compose down
-```
-
-Reset total termasuk volume:
-
-```bash
-docker compose down -v
-```
+- [ ] PostgreSQL logging running.
+- [ ] Schema `logs` tersedia.
+- [ ] Fluent Bit menerima log.
+- [ ] Log generator menghasilkan log multi-level.
+- [ ] Log masuk ke PostgreSQL.
+- [ ] Query distribusi log per level berhasil.
+- [ ] View `recent_logs` dan `error_summary` berhasil.
 
 ---
 
-# Praktikum 6 — Grafana Service Docker untuk Monitoring Resource
+# Modul 6 — Grafana Service Docker untuk Monitoring Resource
 
-## 6.1 Tujuan
+## Tujuan Pembelajaran
 
-Mahasiswa mampu menjalankan stack monitoring berbasis Docker yang terdiri dari:
+Mahasiswa mampu:
 
-```text
-cAdvisor → Prometheus → Grafana
-```
+1. Menjelaskan perbedaan log dan metrik.
+2. Menjalankan cAdvisor untuk membaca metrik container.
+3. Menjalankan Prometheus sebagai time-series metrics storage.
+4. Menjalankan Grafana sebagai dashboard.
+5. Membuat dashboard CPU, memory, network, dan filesystem.
 
-## 6.2 Teori Singkat
-
-- **cAdvisor** mengumpulkan metrik penggunaan resource container, seperti CPU, memori, network, dan filesystem.
-- **Prometheus** mengambil metrik secara berkala dari endpoint HTTP `/metrics`.
-- **Grafana** menampilkan metrik dalam bentuk dashboard.
-
-Alur data:
+## Topologi
 
 ```text
-Docker container metrics → cAdvisor /metrics → Prometheus scrape → Grafana dashboard
+Docker container metrics
+        │
+        ▼
+cAdvisor metrics endpoint
+        │
+        ▼
+Prometheus scrape
+        │
+        ▼
+Grafana dashboard
 ```
 
-> Catatan: Praktikum monitoring resource paling stabil dijalankan pada Linux host atau Linux VM. Pada Windows dengan Docker Desktop/WSL 2, hasil metrik dapat berbeda karena Docker berjalan di dalam VM/WSL backend.
+## Langkah Praktikum
 
-## 6.3 Persiapan Direktori
+### 1. Persiapan
 
 ```bash
-cd ../
-mkdir -p 04-monitoring/prometheus 04-monitoring/grafana/provisioning/datasources
-cd 04-monitoring
+mkdir -p ~/docker-lab/monitoring/prometheus ~/docker-lab/monitoring/grafana/provisioning/datasources
+cd ~/docker-lab/monitoring
 ```
 
-## 6.4 Konfigurasi Prometheus
-
-Buat file `prometheus/prometheus.yml`:
+### 2. Prometheus Config
 
 ```bash
 cat > prometheus/prometheus.yml <<'EOF'
 global:
   scrape_interval: 5s
-
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["prometheus:9090"]
-
   - job_name: "cadvisor"
     static_configs:
       - targets: ["cadvisor:8080"]
 EOF
 ```
 
-## 6.5 Provisioning Datasource Grafana
-
-Buat file `grafana/provisioning/datasources/datasource.yml`:
+### 3. Grafana Datasource
 
 ```bash
 cat > grafana/provisioning/datasources/datasource.yml <<'EOF'
 apiVersion: 1
-
 datasources:
   - name: Prometheus
     type: prometheus
@@ -1202,12 +1433,10 @@ datasources:
 EOF
 ```
 
-## 6.6 Membuat Docker Compose Monitoring
-
-Buat file `compose.yaml`:
+### 4. Compose Monitoring Stack
 
 ```bash
-cat > compose.yaml <<'EOF'
+cat > docker-compose.yml <<'EOF'
 services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -1224,7 +1453,6 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     restart: unless-stopped
-
   prometheus:
     image: prom/prometheus:latest
     container_name: monitoring-prometheus
@@ -1232,12 +1460,11 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
+      - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     restart: unless-stopped
-
   grafana:
     image: grafana/grafana:latest
     container_name: monitoring-grafana
@@ -1247,15 +1474,14 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin123
     volumes:
-      - grafana_data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
     restart: unless-stopped
-
 volumes:
-  prometheus_data:
-  grafana_data:
+  prometheus-data:
+  grafana-data:
 EOF
 ```
 
@@ -1263,377 +1489,92 @@ Jalankan:
 
 ```bash
 docker compose up -d
-```
-
-Cek container:
-
-```bash
 docker compose ps
 ```
 
-## 6.7 Akses Service Monitoring
-
-Akses cAdvisor:
+Akses:
 
 ```text
-http://localhost:8082
+cAdvisor: http://localhost:8082
+Prometheus: http://localhost:9090
+Grafana: http://localhost:3000
+Grafana login: admin / admin123
 ```
 
-Akses Prometheus:
-
-```text
-http://localhost:9090
-```
-
-Akses Grafana:
-
-```text
-http://localhost:3000
-```
-
-Login Grafana:
-
-```text
-Username: admin
-Password: admin123
-```
-
-## 6.8 Uji Query Prometheus
-
-Buka Prometheus, lalu coba query berikut:
+Query Prometheus:
 
 ```promql
 up
-```
-
-```promql
-container_memory_usage_bytes
-```
-
-```promql
-rate(container_cpu_usage_seconds_total[1m])
-```
-
-```promql
-rate(container_network_receive_bytes_total[1m])
-```
-
-## 6.9 Membuat Dashboard Grafana Manual
-
-Di Grafana:
-
-1. Masuk ke **Dashboards**.
-2. Pilih **New Dashboard**.
-3. Tambahkan panel CPU:
-
-```promql
-rate(container_cpu_usage_seconds_total{name!=""}[1m])
-```
-
-4. Tambahkan panel memori:
-
-```promql
 container_memory_usage_bytes{name!=""}
-```
-
-5. Tambahkan panel network receive:
-
-```promql
+rate(container_cpu_usage_seconds_total{name!=""}[1m])
 rate(container_network_receive_bytes_total{name!=""}[1m])
 ```
 
-6. Tambahkan panel filesystem read:
+Panel Grafana yang wajib dibuat:
 
 ```promql
+rate(container_cpu_usage_seconds_total{name!=""}[1m])
+container_memory_usage_bytes{name!=""}
+rate(container_network_receive_bytes_total{name!=""}[1m])
 rate(container_fs_reads_bytes_total{name!=""}[1m])
 ```
 
-7. Simpan dashboard dengan nama:
-
-```text
-Docker Resource Monitoring Lab
-```
-
-## 6.10 Membuat Beban Container untuk Diamati
-
-Jalankan container penghasil beban CPU ringan:
+Workload test:
 
 ```bash
 docker run -d --name cpu-test alpine sh -c "while true; do :; done"
-```
-
-Amati perubahan CPU di Grafana.
-
-Hentikan container:
-
-```bash
 docker rm -f cpu-test
-```
-
-Jalankan container penghasil traffic sederhana:
-
-```bash
-docker run -d --name web-load -p 8090:80 nginx:latest
-```
-
-Dari terminal lain:
-
-```bash
+docker run -d --name web-load -p 8090:80 nginx:alpine
 for i in $(seq 1 100); do curl -s http://localhost:8090 > /dev/null; done
-```
-
-Hapus container:
-
-```bash
 docker rm -f web-load
 ```
 
-## 6.11 Stop Monitoring Stack
+## Pertanyaan Modul 6
 
-```bash
-docker compose down
-```
+1. Apa perbedaan log dan metrik?
+2. Apa fungsi cAdvisor?
+3. Apa fungsi Prometheus?
+4. Apa fungsi Grafana?
+5. Metrik apa yang penting untuk mendeteksi container bermasalah?
 
-Reset total:
+## Checklist Modul 6
 
-```bash
-docker compose down -v
-```
-
-## 6.12 Tugas Praktikum
-
-1. Buat dashboard Grafana minimal 4 panel:
-   - CPU usage
-   - Memory usage
-   - Network receive/transmit
-   - Filesystem read/write
-2. Jalankan minimal 3 container berbeda.
-3. Dokumentasikan container mana yang paling banyak menggunakan CPU.
-4. Dokumentasikan container mana yang paling banyak menggunakan memori.
-5. Jelaskan hubungan cAdvisor, Prometheus, dan Grafana.
-
----
-
-# Praktik Keamanan Dasar Docker
-
-Terapkan prinsip berikut selama praktikum:
-
-1. Jangan gunakan password default untuk lingkungan produksi.
-2. Jangan commit file `.env` berisi password ke repository publik.
-3. Gunakan named volume untuk data penting.
-4. Gunakan bind mount read-only bila container hanya perlu membaca file.
-5. Jangan mount `/var/run/docker.sock` ke container kecuali benar-benar diperlukan.
-6. Batasi port yang dipublikasikan ke host.
-7. Gunakan network internal Docker untuk komunikasi antar-service.
-8. Pin versi image untuk produksi, misalnya `postgres:16` alih-alih `postgres:latest`.
-9. Aktifkan log rotation agar disk tidak penuh.
-10. Hapus container, image, network, dan volume yang tidak digunakan.
-
-Perintah pembersihan:
-
-```bash
-docker container prune
-docker image prune
-docker network prune
-docker volume prune
-```
-
-Gunakan dengan hati-hati karena perintah prune dapat menghapus resource yang tidak sedang digunakan.
+- [ ] cAdvisor dapat diakses.
+- [ ] Prometheus dapat diakses.
+- [ ] Grafana dapat diakses.
+- [ ] Datasource Prometheus otomatis tersedia.
+- [ ] Dashboard minimal empat panel berhasil dibuat.
+- [ ] Workload CPU dan network terlihat pada dashboard.
 
 ---
 
 # Troubleshooting Umum
 
-## 1. Port sudah digunakan
-
-Gejala:
-
-```text
-Bind for 0.0.0.0:8080 failed: port is already allocated
-```
-
-Solusi:
-
-```bash
-docker ps
-```
-
-Cari container yang memakai port tersebut, lalu stop:
-
-```bash
-docker rm -f nama-container
-```
-
-Atau ubah port host, misalnya dari `8080:80` menjadi `8180:80`.
-
-## 2. Permission denied pada Linux
-
-Gejala:
-
-```text
-permission denied while trying to connect to the Docker daemon socket
-```
-
-Solusi sementara:
-
-```bash
-sudo docker ps
-```
-
-Solusi permanen:
-
-```bash
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-## 3. Container langsung berhenti
-
-Cek log:
-
-```bash
-docker logs nama-container
-```
-
-Cek status exit code:
-
-```bash
-docker inspect nama-container --format '{{.State.ExitCode}}'
-```
-
-## 4. Docker Compose build gagal
-
-Bersihkan build cache bila perlu:
-
-```bash
-docker compose build --no-cache
-docker compose up -d
-```
-
-## 5. PostgreSQL tidak menerima koneksi
-
-Cek log:
-
-```bash
-docker logs logging-postgres
-```
-
-Pastikan password, user, database, dan port benar. Jika database sudah pernah dibuat pada volume lama, perubahan environment variable tidak selalu mengubah database yang sudah ada. Reset volume bila memang diperlukan:
-
-```bash
-docker compose down -v
-```
+| Gejala | Kemungkinan Penyebab | Solusi |
+|---|---|---|
+| `permission denied` saat `docker ps` | User belum masuk grup Docker | Tambahkan user ke grup `docker`, lalu login ulang |
+| `Cannot connect to Docker daemon` | Service Docker belum aktif | Jalankan `sudo systemctl start docker` |
+| `docker compose` tidak ditemukan | Compose plugin belum terinstal | Instal `docker-compose-plugin` |
+| Port conflict | Port sudah dipakai service lain | Cek `docker ps`, ubah port mapping |
+| Nginx 502 Bad Gateway | Backend belum running | Cek `docker compose logs` |
+| PostgreSQL init script tidak berjalan | Volume lama sudah berisi data | Reset dengan `docker compose down -v` bila aman |
+| pgAdmin tidak connect | Host database salah | Gunakan nama service `db` atau `postgres-db` |
+| Log tidak masuk PostgreSQL | Collector belum berjalan | Cek `docker compose logs log-collector` |
+| Grafana tidak membaca Prometheus | Datasource salah | Pastikan URL datasource `http://prometheus:9090` |
+| cAdvisor bermasalah di Windows atau WSL | Mount host berbeda dari Linux native | Gunakan Linux host atau Linux VM |
 
 ---
 
-# Lembar Kerja Mahasiswa
+# Format Laporan Praktikum
 
-## Identitas
+Setiap modul dikumpulkan sebagai PDF singkat berisi:
 
-- Nama:
-- NRP/NIM:
-- Kelas:
-- Tanggal praktikum:
-- Sistem operasi host:
-- Versi Docker:
-- Versi Docker Compose:
-
-## Bukti Praktikum 1
-
-Lampirkan screenshot atau output:
-
-```bash
-docker version
-docker compose version
-docker run hello-world
-```
-
-Jawaban analisis:
-
-1. Jelaskan fungsi Docker Engine.
-2. Jelaskan perbedaan image dan container.
-3. Jelaskan peran WSL 2 pada Docker Desktop Windows.
-
-## Bukti Praktikum 2
-
-Lampirkan output:
-
-```bash
-docker ps
-docker volume ls
-docker volume inspect labdata
-```
-
-Jawaban analisis:
-
-1. Jelaskan perbedaan volume dan bind mount.
-2. Berikan contoh kasus penggunaan volume.
-3. Berikan contoh kasus penggunaan bind mount.
-
-## Bukti Praktikum 3
-
-Lampirkan screenshot browser:
-
-- Apache `http://localhost:8080`
-- Nginx `http://localhost:8081`
-
-Lampirkan output:
-
-```bash
-docker compose ps
-docker compose logs --tail 20
-```
-
-Jawaban analisis:
-
-1. Jelaskan port mapping pada Apache dan Nginx.
-2. Jelaskan perbedaan document root Apache dan Nginx.
-3. Bandingkan log Apache dan Nginx.
-
-## Bukti Praktikum 4
-
-Lampirkan output query PostgreSQL:
-
-```sql
-SELECT * FROM mahasiswa;
-SELECT * FROM aset_it;
-```
-
-Jawaban analisis:
-
-1. Mengapa PostgreSQL perlu persistent volume?
-2. Apa risiko menjalankan database dengan password lemah?
-3. Bagaimana cara backup database PostgreSQL dari container?
-
-## Bukti Praktikum 5
-
-Lampirkan output:
-
-```sql
-SELECT level, COUNT(*) FROM container_logs GROUP BY level;
-SELECT * FROM container_logs ORDER BY id DESC LIMIT 5;
-```
-
-Jawaban analisis:
-
-1. Jelaskan alur log dari aplikasi sampai PostgreSQL.
-2. Apa kelemahan logging berbasis shared file?
-3. Apa alternatif logging untuk skala produksi?
-
-## Bukti Praktikum 6
-
-Lampirkan screenshot:
-
-- Prometheus target status
-- Grafana dashboard
-- cAdvisor container list
-
-Jawaban analisis:
-
-1. Jelaskan fungsi cAdvisor.
-2. Jelaskan fungsi Prometheus.
-3. Jelaskan fungsi Grafana.
-4. Apa metrik paling penting untuk mendeteksi container bermasalah?
+1. Cover: judul, nama, NRP, kelas, tanggal, OS host, versi Docker.
+2. Screenshot perintah utama dan service yang berhasil diakses.
+3. Hasil query atau dashboard.
+4. Jawaban pertanyaan Post-Lab.
+5. Kendala dan solusi.
+6. Kesimpulan.
 
 ---
 
@@ -1641,31 +1582,18 @@ Jawaban analisis:
 
 | Komponen | Bobot |
 |---|---:|
-| Instalasi dan verifikasi Docker berhasil | 10% |
-| Pengelolaan container, service, log, dan lifecycle | 15% |
-| Pemahaman volume dan bind mount | 15% |
-| Web service Apache dan Nginx berjalan | 15% |
-| PostgreSQL berjalan dengan persistent storage | 15% |
-| Pipeline logging ke PostgreSQL berhasil | 15% |
-| Grafana monitoring resource berhasil | 10% |
-| Analisis, dokumentasi, dan kerapian laporan | 5% |
-
----
-
-# Pertanyaan Pengayaan
-
-1. Mengapa container bukan virtual machine penuh?
-2. Apa dampak menjalankan container dengan user root?
-3. Mengapa database container lebih cocok untuk development/lab dibanding deployment produksi tanpa orkestrasi?
-4. Apa perbedaan `docker compose down` dan `docker compose down -v`?
-5. Bagaimana cara membatasi penggunaan CPU dan memori container?
-6. Apa perbedaan monitoring berbasis log dan monitoring berbasis metrik?
-7. Mengapa Grafana membutuhkan datasource seperti Prometheus?
-8. Bagaimana rancangan logging yang lebih baik untuk sistem banyak node?
+| Instalasi dan verifikasi Docker | 10% |
+| Docker CLI, image, container, lifecycle | 15% |
+| Network, volume, bind mount, tmpfs, Compose | 15% |
+| Apache, Nginx, SSL, reverse proxy | 15% |
+| PostgreSQL, CRUD, backup, restore | 15% |
+| Logging pipeline dan analisis SQL | 15% |
+| Grafana monitoring resource | 10% |
+| Dokumentasi dan analisis | 5% |
 
 ---
 
 # Penutup
 
-Modul ini memperkenalkan Docker dari instalasi hingga observability dasar. Setelah menyelesaikan seluruh praktikum, mahasiswa diharapkan mampu menjalankan service berbasis container secara mandiri, memahami persistent storage, membangun service web dan database, membuat pipeline logging sederhana, serta memonitor penggunaan resource container dengan Grafana.
+Modul ini mengikuti alur repository `docker-intro`: dimulai dari instalasi Docker, pengelolaan container, network dan mount point, deployment web service Apache dan Nginx, PostgreSQL sebagai database service, centralized logging dengan PostgreSQL, lalu monitoring resource dengan Grafana. Setelah menyelesaikan seluruh modul, mahasiswa diharapkan mampu membangun, menjalankan, mengamati, dan menganalisis service berbasis container secara sistematis.
 
